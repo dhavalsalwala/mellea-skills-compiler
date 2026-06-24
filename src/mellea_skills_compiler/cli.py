@@ -376,6 +376,14 @@ def export(
             help="Overwrite output directory if it already exists.",
         ),
     ] = False,
+    enforce: Annotated[
+        bool,
+        typer.Option(
+            "--enforce",
+            "-e",
+            help="Register Guardian in enforce mode (blocks on risk detection). Default: audit-only.",
+        ),
+    ] = False,
 ):
     """
     Export a compiled Mellea skill to a deployment target (langgraph, claude-code, or mcp).
@@ -395,6 +403,7 @@ def export(
             package_path=Path(package_path),
             target=target,
             force=force,
+            enforce=enforce,
         )
         result = run_export(inv)
         LOGGER.info(

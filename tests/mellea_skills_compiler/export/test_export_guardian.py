@@ -191,10 +191,13 @@ _STUB_MANIFEST = {"use_case": "test", "taxonomy": "test", "risks": [], "addition
 
 @pytest.fixture()
 def certified_skill_dir(tmp_path):
-    """Copy the weather skill into a temp dir and add a stub policy_manifest.json."""
+    """Copy the weather skill into a temp dir with a stub policy_manifest.json in an audit_* dir."""
     skill_copy = tmp_path / "weather_mellea"
     shutil.copytree(_WEATHER_SKILL, skill_copy)
-    (skill_copy / "policy_manifest.json").write_text(json.dumps(_STUB_MANIFEST))
+    # stage2_load looks for policy_manifest.json in audit_* dirs sibling to the skill root
+    audit_dir = tmp_path / "audit_test"
+    audit_dir.mkdir()
+    (audit_dir / "policy_manifest.json").write_text(json.dumps(_STUB_MANIFEST))
     return skill_copy
 
 
@@ -252,3 +255,62 @@ def test_run_export_notes_contains_guardian_section(certified_skill_dir, tmp_pat
     notes = (out_path / "EXPORT_NOTES.md").read_text()
     assert "Guardian audit" in notes
     assert "runtime_audit.jsonl" in notes
+
+
+# ---------------------------------------------------------------------------
+# Enforce mode tests
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("target", ["mcp", "langgraph", "claude-code"])
+def test_enforce_flag_generates_enforce_plugin(certified_skill_dir, tmp_path, target):
+    out_path = tmp_path / f"weather_mellea-{target}"
+    inv = Invocation(
+        package_path=certified_skill_dir,
+        target=target,
+        out_path=out_path,
+        force=True,
+        enforce=True,
+    )
+    run_export(inv)
+
+    entry_files = {
+        "mcp": out_path / "server.py",
+        "langgraph": out_path / "graph.py",
+        "claude-code": out_path / "scripts" / "run.sh",
+    }
+    content = entry_files[target].read_text()
+    assert "GuardianEnforcePlugin" in content
+    assert "GuardianAuditPlugin" not in content
+
+
+@pytest.mark.parametrize("target", ["mcp", "langgraph", "claude-code"])
+def test_enforce_flag_reverse_manifest(certified_skill_dir, tmp_path, target):
+    out_path = tmp_path / f"weather_mellea-{target}"
+    inv = Invocation(
+        package_path=certified_skill_dir,
+        target=target,
+        out_path=out_path,
+        force=True,
+        enforce=True,
+    )
+    run_export(inv)
+
+    reverse = json.loads((out_path / "melleafy-export.json").read_text())
+    assert reverse["guardian_configured"] == "enforce"
+
+
+@pytest.mark.parametrize("target", ["mcp", "langgraph", "claude-code"])
+def test_enforce_flag_export_notes(certified_skill_dir, tmp_path, target):
+    out_path = tmp_path / f"weather_mellea-{target}"
+    inv = Invocation(
+        package_path=certified_skill_dir,
+        target=target,
+        out_path=out_path,
+        force=True,
+        enforce=True,
+    )
+    run_export(inv)
+
+    notes = (out_path / "EXPORT_NOTES.md").read_text()
+    assert "enforce" in notes
+    assert "PluginViolationError" in notes

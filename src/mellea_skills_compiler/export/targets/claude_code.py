@@ -55,6 +55,7 @@ def translate_claude_code(loaded: "LoadedContext") -> "TranslationPlan":
         params=sig.params,
         export_version=export_version,
         has_policy_manifest=loaded.policy_manifest_path is not None,
+        enforce=loaded.invocation.enforce,
     )
 
     skill_md = _render_skill_md(
@@ -151,6 +152,7 @@ def _render_run_sh(
     params: list[dict],
     export_version: str,
     has_policy_manifest: bool = False,
+    enforce: bool = False,
 ) -> str:
     dispatch = {
         "synchronous_oneshot": _run_sh_synchronous_oneshot,
@@ -165,6 +167,7 @@ def _render_run_sh(
         params=params,
         export_version=export_version,
         has_policy_manifest=has_policy_manifest,
+        enforce=enforce,
     )
 
 
@@ -197,19 +200,20 @@ def _invocation_args(pattern: str, params: list[dict]) -> str:
     return args
 
 
-def _guardian_inline_snippet() -> str:
+def _guardian_inline_snippet(enforce: bool = False) -> str:
+    plugin_class = "GuardianEnforcePlugin" if enforce else "GuardianAuditPlugin"
     return (
         "import os\n"
         "from pathlib import Path\n"
         "from mellea_skills_compiler.models import PolicyManifest\n"
-        "from mellea_skills_compiler.plugins.guardian import GuardianAuditPlugin\n"
+        f"from mellea_skills_compiler.plugins.guardian import {plugin_class}\n"
         "from mellea_skills_compiler.plugins.audit import AuditTrailPlugin\n"
-        "_manifest_path = Path(os.environ.get('ADAPTER_DIR', '.')) / 'policy_manifest.json'\n"
+        "_adapter_dir = Path(os.environ.get('ADAPTER_DIR', '.'))\n"
+        "_manifest_path = _adapter_dir / 'policy_manifest.json'\n"
         "if _manifest_path.exists():\n"
-        "    guardian_plugin = GuardianAuditPlugin(PolicyManifest.from_json(_manifest_path))\n"
+        f"    guardian_plugin = {plugin_class}(PolicyManifest.from_json(_manifest_path))\n"
         "    guardian_plugin.register()\n"
-        "    audit_plugin = AuditTrailPlugin(log_path=Path('audit_trail.jsonl'), guardian_plugin=guardian_plugin)\n"
-        "    audit_plugin.register()\n"
+        "    AuditTrailPlugin(log_path=_adapter_dir / 'audit' / 'runtime_audit.jsonl', guardian_plugin=guardian_plugin).register()\n"
     )
 
 
@@ -222,10 +226,11 @@ def _run_sh_synchronous_oneshot(
     params: list[dict],
     export_version: str,
     has_policy_manifest: bool = False,
+    enforce: bool = False,
 ) -> str:
     inv_args = _invocation_args(pattern, params)
     header = _bash_header(export_version)
-    guardian = _guardian_inline_snippet() if has_policy_manifest else ""
+    guardian = _guardian_inline_snippet(enforce=enforce) if has_policy_manifest else ""
     return (
         header
         + "\n"
@@ -275,10 +280,11 @@ def _run_sh_streaming(
     params: list[dict],
     export_version: str,
     has_policy_manifest: bool = False,
+    enforce: bool = False,
 ) -> str:
     header = _bash_header(export_version)
     call_line = _streaming_call(entry_function, pattern, params)
-    guardian = _guardian_inline_snippet() if has_policy_manifest else ""
+    guardian = _guardian_inline_snippet(enforce=enforce) if has_policy_manifest else ""
     return (
         header
         + "\n"
@@ -306,9 +312,10 @@ def _run_sh_conversational_session(
     params: list[dict],
     export_version: str,
     has_policy_manifest: bool = False,
+    enforce: bool = False,
 ) -> str:
     header = _bash_header(export_version)
-    guardian = _guardian_inline_snippet() if has_policy_manifest else ""
+    guardian = _guardian_inline_snippet(enforce=enforce) if has_policy_manifest else ""
     return (
         header
         + "\n"
