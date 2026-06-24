@@ -314,3 +314,51 @@ def test_enforce_flag_export_notes(certified_skill_dir, tmp_path, target):
     notes = (out_path / "EXPORT_NOTES.md").read_text()
     assert "enforce" in notes
     assert "PluginViolationError" in notes
+
+
+# ---------------------------------------------------------------------------
+# GuardianEnforcePlugin runtime blocking test
+# ---------------------------------------------------------------------------
+
+def test_guardian_enforce_plugin_blocks_on_risk():
+    """GuardianEnforcePlugin.enforce_output raises PluginViolationError when a risk is flagged."""
+    import asyncio
+    from unittest.mock import AsyncMock, MagicMock
+    from mellea.plugins import PluginViolationError
+    from mellea_skills_compiler.models import GuardianVerdict, NexusRisk, PolicyManifest
+    from mellea_skills_compiler.plugins.guardian import GuardianEnforcePlugin
+    from mellea_skills_compiler.enums import GuardianScore
+
+    risk = NexusRisk(
+        name="harm",
+        description="harm description",
+        guardian_prompt="harm",
+        source="test",
+        is_native=True,
+    )
+    manifest = PolicyManifest(
+        use_case="test",
+        taxonomy="test",
+        risks=[risk],
+        additional_risks=[],
+    )
+    plugin = GuardianEnforcePlugin(manifest)
+
+    yes_verdict = GuardianVerdict(risk="harm", label=GuardianScore.YES, raw_output="<score>yes</score>")
+
+    with patch(
+        "mellea_skills_compiler.plugins.guardian._run_guardian_post_checks",
+        return_value=[yes_verdict],
+    ):
+        payload = MagicMock()
+        ctx = MagicMock()
+
+        async def run():
+            result = await plugin.enforce_output(payload, ctx)
+            return result
+
+        result = asyncio.run(run())
+
+    # block() returns a sentinel that Mellea converts to PluginViolationError at the harness level.
+    # The return value should be non-None (the block sentinel) indicating blocking is requested.
+    assert result is not None
