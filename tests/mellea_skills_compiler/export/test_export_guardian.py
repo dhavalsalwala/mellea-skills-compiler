@@ -321,10 +321,11 @@ def test_enforce_flag_export_notes(certified_skill_dir, tmp_path, target):
 # ---------------------------------------------------------------------------
 
 def test_guardian_enforce_plugin_blocks_on_risk():
-    """GuardianEnforcePlugin.enforce_output raises PluginViolationError when a risk is flagged."""
+    """GuardianEnforcePlugin raises PluginViolationError via Mellea's plugin manager when a risk is flagged."""
     import asyncio
-    from unittest.mock import AsyncMock, MagicMock
-    from mellea.plugins import PluginViolationError
+    from unittest.mock import MagicMock
+    from mellea.plugins import PluginViolationError, register, unregister, HookType
+    from mellea.plugins.manager import invoke_hook
     from mellea_skills_compiler.models import GuardianVerdict, NexusRisk, PolicyManifest
     from mellea_skills_compiler.plugins.guardian import GuardianEnforcePlugin
     from mellea_skills_compiler.enums import GuardianScore
@@ -343,22 +344,24 @@ def test_guardian_enforce_plugin_blocks_on_risk():
         additional_risks=[],
     )
     plugin = GuardianEnforcePlugin(manifest)
+    plugin.register()
 
     yes_verdict = GuardianVerdict(risk="harm", label=GuardianScore.YES, raw_output="<score>yes</score>")
 
-    with patch(
-        "mellea_skills_compiler.plugins.guardian._run_guardian_post_checks",
-        return_value=[yes_verdict],
-    ):
-        payload = MagicMock()
-        ctx = MagicMock()
+    payload = MagicMock()
+    payload.model_output = MagicMock()
+    payload.model_output._action = MagicMock()
+    payload.model_output.value = "flagged content"
+    payload.prompt = [{"role": "user", "content": "test"}]
 
-        async def run():
-            result = await plugin.enforce_output(payload, ctx)
-            return result
+    try:
+        with pytest.raises(PluginViolationError) as exc_info:
+            with patch(
+                "mellea_skills_compiler.plugins.guardian._run_guardian_post_checks",
+                return_value=[yes_verdict],
+            ):
+                asyncio.run(invoke_hook(HookType.GENERATION_POST_CALL, payload))
 
-        result = asyncio.run(run())
-
-    # block() returns a sentinel that Mellea converts to PluginViolationError at the harness level.
-    # The return value should be non-None (the block sentinel) indicating blocking is requested.
-    assert result is not None
+        assert exc_info.value.code == "guardian_output_risk_detected"
+    finally:
+        unregister(plugin)
