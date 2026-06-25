@@ -16,6 +16,7 @@ fixture failures require human review per `mellea-fy-validate.md`.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 import time
@@ -188,15 +189,22 @@ def _run_one_fixture(
     pipeline_fn,
     fixture: Dict[str, Any],
     skill_dir: Optional[Path] = None,
+    package_dir: Optional[Path] = None,
 ) -> SmokeFixtureResult:
     fixture_id = fixture.get("id", "<unknown>")
     started = time.time()
     try:
         context = fixture["context"]
-        if isinstance(context, dict):
-            pipeline_fn(**context)
-        else:
-            pipeline_fn(context)
+        # Run the fixture from the package directory so package-relative input
+        # paths (e.g. 'references/example_patient.json' bundled in the package)
+        # resolve the same way they do for an installed skill, rather than
+        # against the compiler's CWD. contextlib.chdir restores CWD afterward.
+        run_dir = package_dir if package_dir is not None else Path.cwd()
+        with contextlib.chdir(run_dir):
+            if isinstance(context, dict):
+                pipeline_fn(**context)
+            else:
+                pipeline_fn(context)
     except BaseException as exc:  # noqa: BLE001 — we re-classify all
         duration = time.time() - started
         skipped_reason = _classify_exception(exc, skill_dir=skill_dir)
@@ -247,7 +255,9 @@ def run_smoke_check(package_dir: Path, all_fixtures: bool = False) -> SmokeRunRe
     fixture_results: List[SmokeFixtureResult] = []
     for fixture in targets:
         fixture_results.append(
-            _run_one_fixture(pipeline_fn, fixture, skill_dir=skill_dir)
+            _run_one_fixture(
+                pipeline_fn, fixture, skill_dir=skill_dir, package_dir=package_dir
+            )
         )
 
     if any(r.verdict == "failed" for r in fixture_results):
