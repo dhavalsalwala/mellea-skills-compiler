@@ -1,6 +1,7 @@
 # Quick Start
 
 ## Introduction
+
 In this section you will:
 
     1. choose a skill
@@ -8,18 +9,19 @@ In this section you will:
     3. choose your CLI and run the commands!
 
 ## Choose a skill to work with.
+
 Download one of the skill specifications from GitHub or use your own specification file.
 
 - Example skills: https://github.com/generative-computing/mellea-skills-compiler/tree/main/skills
 
 ## Choose your Ollama models
 
-We recommend downloading the Ollama models `granite3.3:8b` and `ibm/granite3.3-guardian:8b` beforehand, as they are set as defaults.
+We recommend downloading the Ollama models `granite4.1:3B` and `ibm/granite3.3-guardian:8b` beforehand, as they are set as defaults.
 
 For Risk Identification
 
 ```
-ollama pull granite3.3:8b
+ollama pull granite4.1:3B
 ```
 
 For Risk Assessment
@@ -88,7 +90,7 @@ Run end-to-end certification — risk identification via AI Atlas Nexus, Guardia
 mellea-skills certify <Your-local-path>/skills/weather/weather_mellea                      # provide path to the compiled skill directory
 mellea-skills certify <Your-local-path>/skills/weather/weather_mellea --enforce            # Block on risk detection
 mellea-skills certify <Your-local-path>/skills/weather/weather_mellea --fixture rain_check # Run specific fixture - rain_check
-mellea-skills certify <Your-local-path>/skills/weather/weather_mellea --model granite3.3:8b --guardian-model ibm/granite3.3-guardian:8b --inference-engine ollama    # Using different risk model, guardian model and inference engine
+mellea-skills certify <Your-local-path>/skills/weather/weather_mellea --model granite4.1:3B --guardian-model ibm/granite3.3-guardian:8b --inference-engine ollama    # Using different risk model, guardian model and inference engine
 ```
 
 ### Export Compiled Mellea Skill
