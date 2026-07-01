@@ -12,6 +12,7 @@ End-to-end demonstration:
   6. Certification report with runtime evidence
 """
 
+import contextlib
 import json
 from datetime import datetime
 from pathlib import Path
@@ -24,6 +25,10 @@ from mellea_skills_compiler.certification.classification import (
     classify_governance_requirements,
 )
 from mellea_skills_compiler.certification.data import get_data_path
+from mellea_skills_compiler.certification.input_resolver import (
+    InputResolutionError,
+    resolve_input,
+)
 from mellea_skills_compiler.certification.policy import (
     generate_policy_manifest,
     generate_policy_markdown,
@@ -59,14 +64,15 @@ console = Console(log_time=True)
 LOGGER = configure_logger()
 
 
-def _run_single_fixture(pipeline_fn: Callable, fixture: Dict):
+def _run_single_fixture(pipeline_fn: Callable, fixture: Dict, pipeline_dir: Path):
     report = None
     try:
         context = fixture["context"]
-        if isinstance(context, dict):
-            report = pipeline_fn(**context)
-        else:
-            report = pipeline_fn(context)
+        with contextlib.chdir(pipeline_dir):
+            if isinstance(context, dict):
+                report = pipeline_fn(**context)
+            else:
+                report = pipeline_fn(context)
         LOGGER.info("Pipeline executed successfully.")
     except PluginViolationError as e:
         LOGGER.warning("Pipeline BLOCKED by Guardian enforcement.")
@@ -92,7 +98,8 @@ def _get_fixture(fixture_id, fixtures):
 
 def run_pipeline(
     pipeline_dir: Path,
-    fixture_id: str,
+    fixture_id: Optional[str] = None,
+    input: Optional[str] = None,
     enforce: bool = False,
     no_guardian: bool = False,
 ) -> RunResult:
@@ -167,11 +174,20 @@ def run_pipeline(
         # Load fixtures from the pipeline directory
         fixtures = load_fixtures(pipeline_dir)
 
-        # Get the desired fixture
-        fixture = _get_fixture(fixture_id, fixtures)
+        # Resolve input from possible sources
+        try:
+            fixture = resolve_input(
+                pipeline_fn=pipeline_fn,
+                fixture_id=fixture_id,
+                input=input,
+                fixtures=fixtures,
+            )
+        except InputResolutionError as e:
+            LOGGER.error(f"Input resolution failed - {e}")
+            raise
 
         # run given fixture
-        output = _run_single_fixture(pipeline_fn, fixture)
+        output = _run_single_fixture(pipeline_fn, fixture.dict(), pipeline_dir)
 
         # output
         console.print("\n[bold blue]OUTPUT:[/]")
@@ -180,7 +196,7 @@ def run_pipeline(
         run_result = RunResult(
             guardian_mode=guardian_mode,
             guardian_verdict=guardian_plugin.summary() if guardian_plugin else None,
-            fixture_summary={"name": fixture, "output": output},
+            fixture_summary={"name": fixture.dict(), "output": output},
             audit_summary=audit_plugin.summary() if audit_plugin else None,
         )
 
@@ -194,7 +210,7 @@ def run_pipeline(
         return run_result
 
     except Exception as e:
-        LOGGER.error(f"Pipeline run failed: {str(e)}")
+        LOGGER.error(f"Pipeline run failed - {str(e)}")
     finally:
         if guardian_plugin:
             guardian_plugin.deregister()
@@ -334,7 +350,7 @@ def full_pipeline(
     report_json_path = None
     try:
         # run the given fixture
-        report = _run_single_fixture(pipeline_fn, fixture)
+        report = _run_single_fixture(pipeline_fn, fixture, pipeline_dir)
         if report:
             # Write the pipeline's report (works for any Pydantic model)
             report_json_path = output_dir / "pipeline_report.json"
