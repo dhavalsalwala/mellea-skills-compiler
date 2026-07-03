@@ -9,16 +9,20 @@ from unittest.mock import patch
 
 import pytest
 
-from mellea_skills_compiler.export.exporter import Invocation, ParsedSignature, run_export
-from mellea_skills_compiler.export.targets.mcp import _render_server_py
-from mellea_skills_compiler.export.targets.langgraph import (
-    _render_graph_py,
-    _guardian_block,
+from mellea_skills_compiler.export.exporter import (
+    Invocation,
+    ParsedSignature,
+    run_export,
 )
 from mellea_skills_compiler.export.targets.claude_code import (
-    _render_run_sh,
     _guardian_inline_snippet,
+    _render_run_sh,
 )
+from mellea_skills_compiler.export.targets.langgraph import (
+    _guardian_block,
+    _render_graph_py,
+)
+from mellea_skills_compiler.export.targets.mcp import _render_server_py
 
 
 def _minimal_sig() -> ParsedSignature:
@@ -194,7 +198,10 @@ def certified_skill_dir(tmp_path):
     """Copy the weather skill into a temp dir and add a stub policy_manifest.json."""
     skill_copy = tmp_path / "weather_mellea"
     shutil.copytree(_WEATHER_SKILL, skill_copy)
-    (skill_copy / "policy_manifest.json").write_text(json.dumps(_STUB_MANIFEST))
+    # Create audit_* directory with policy_manifest.json (matching the exporter's expected structure)
+    audit_dir = tmp_path / "audit_20260703"
+    audit_dir.mkdir(parents=True, exist_ok=True)
+    (audit_dir / "policy_manifest.json").write_text(json.dumps(_STUB_MANIFEST))
     return skill_copy
 
 

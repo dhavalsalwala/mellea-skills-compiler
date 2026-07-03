@@ -12,7 +12,6 @@ End-to-end demonstration:
   6. Certification report with runtime evidence
 """
 
-import contextlib
 import json
 from datetime import datetime
 from pathlib import Path
@@ -40,7 +39,6 @@ from mellea_skills_compiler.certification.report import (
 )
 from mellea_skills_compiler.enums import (
     GuardianMode,
-    GuardianScore,
     InferenceEngineType,
     NexusRiskSource,
     SpecFileFormat,
@@ -182,8 +180,7 @@ def run_pipeline(
                 fixtures=fixtures,
             )
         except InputResolutionError as e:
-            LOGGER.error(f"Input resolution failed - {e}")
-            raise
+            raise Exception(f"Input resolution failed - {e}")
 
         # run given fixture
         output = _run_single_fixture(pipeline_fn, fixture.dict())
