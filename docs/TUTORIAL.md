@@ -3,7 +3,7 @@
 This tutorial assumes you have already followed [`README.md`](README.md) §
 _Install_: `pip install -e .` succeeds in your virtual environment, an Ollama
 backend is running on the host given by `OLLAMA_API_URL`, and the
-`granite3.3:8b` model has been pulled.
+`granite4.1:3b` model has been pulled.
 
 The goal: from a fresh checkout to (1) seeing a compiled skill produce
 a real result, (2) recognising the four archetypes (fetch, structured
@@ -11,7 +11,7 @@ analysis, constrained reasoning, adversarial classification), and (3)
 knowing the next step when _your_ compile produces stubs.
 
 Each fixture makes between two and ten `m.instruct(...)` calls. On a
-modern laptop running `granite3.3:8b`, weather completes in **30–90
+modern laptop running `granite4.1:3b`, weather completes in **30–90
 seconds**; analytical pipelines take **1–4 minutes**. The "five minutes"
 promise is per skill.
 
@@ -51,7 +51,7 @@ then code.
 
 If the run fails with `ConnectionError`, your Ollama endpoint is
 unreachable. Check `OLLAMA_API_URL` and that `ollama list` shows
-`granite3.3:8b`.
+`granite4.1:3b`.
 
 ---
 

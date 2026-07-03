@@ -9,16 +9,20 @@ from unittest.mock import patch
 
 import pytest
 
-from mellea_skills_compiler.export.exporter import Invocation, ParsedSignature, run_export
-from mellea_skills_compiler.export.targets.mcp import _render_server_py
-from mellea_skills_compiler.export.targets.langgraph import (
-    _render_graph_py,
-    _guardian_block,
+from mellea_skills_compiler.export.exporter import (
+    Invocation,
+    ParsedSignature,
+    run_export,
 )
 from mellea_skills_compiler.export.targets.claude_code import (
-    _render_run_sh,
     _guardian_inline_snippet,
+    _render_run_sh,
 )
+from mellea_skills_compiler.export.targets.langgraph import (
+    _guardian_block,
+    _render_graph_py,
+)
+from mellea_skills_compiler.export.targets.mcp import _render_server_py
 
 
 def _minimal_sig() -> ParsedSignature:
@@ -73,7 +77,7 @@ class TestMcpGuardianInjection:
             declared_env_vars=[],
             has_policy_manifest=True,
         )
-        assert result.index("GuardianAuditPlugin") < result.index('mcp = FastMCP(')
+        assert result.index("GuardianAuditPlugin") < result.index("mcp = FastMCP(")
 
 
 class TestLangGraphGuardianInjection:
@@ -121,7 +125,9 @@ class TestLangGraphGuardianInjection:
             manifest={},
             has_policy_manifest=True,
         )
-        assert result.index("GuardianAuditPlugin") < result.index("_builder = StateGraph")
+        assert result.index("GuardianAuditPlugin") < result.index(
+            "_builder = StateGraph"
+        )
 
 
 class TestClaudeCodeGuardianInjection:
@@ -185,8 +191,13 @@ class TestClaudeCodeGuardianInjection:
 # Integration tests — run_export() with a certified skill
 # ---------------------------------------------------------------------------
 
-_WEATHER_SKILL = Path(__file__).parents[3] / "skills/weather/weather_mellea"
-_STUB_MANIFEST = {"use_case": "test", "taxonomy": "test", "risks": [], "additional_risks": []}
+_WEATHER_SKILL = Path(__file__).parents[3] / "examples/weather/weather_mellea"
+_STUB_MANIFEST = {
+    "use_case": "test",
+    "taxonomy": "test",
+    "risks": [],
+    "additional_risks": [],
+}
 
 
 @pytest.fixture()
@@ -194,7 +205,10 @@ def certified_skill_dir(tmp_path):
     """Copy the weather skill into a temp dir and add a stub policy_manifest.json."""
     skill_copy = tmp_path / "weather_mellea"
     shutil.copytree(_WEATHER_SKILL, skill_copy)
-    (skill_copy / "policy_manifest.json").write_text(json.dumps(_STUB_MANIFEST))
+    # Create audit directory and place policy_manifest.json there (matching the expected location)
+    audit_dir = tmp_path / "audit_test"
+    audit_dir.mkdir(parents=True, exist_ok=True)
+    (audit_dir / "policy_manifest.json").write_text(json.dumps(_STUB_MANIFEST))
     return skill_copy
 
 
@@ -224,7 +238,9 @@ def test_run_export_audit_jsonl_created(certified_skill_dir, tmp_path, target):
 
 
 @pytest.mark.parametrize("target", ["mcp", "langgraph", "claude-code"])
-def test_run_export_reverse_manifest_guardian_configured(certified_skill_dir, tmp_path, target):
+def test_run_export_reverse_manifest_guardian_configured(
+    certified_skill_dir, tmp_path, target
+):
     out_path = tmp_path / f"weather_mellea-{target}"
     inv = Invocation(
         package_path=certified_skill_dir,
@@ -239,7 +255,9 @@ def test_run_export_reverse_manifest_guardian_configured(certified_skill_dir, tm
 
 
 @pytest.mark.parametrize("target", ["mcp", "langgraph", "claude-code"])
-def test_run_export_notes_contains_guardian_section(certified_skill_dir, tmp_path, target):
+def test_run_export_notes_contains_guardian_section(
+    certified_skill_dir, tmp_path, target
+):
     out_path = tmp_path / f"weather_mellea-{target}"
     inv = Invocation(
         package_path=certified_skill_dir,

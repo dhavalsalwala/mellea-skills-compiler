@@ -119,12 +119,12 @@ Example skills: https://github.com/generative-computing/mellea-skills-compiler/t
 
 ### Ollama Models
 
-We recommend downloading the Ollama models `granite3.3:8b` and `ibm/granite3.3-guardian:8b` beforehand, as they are set as defaults.
+We recommend downloading the Ollama models `granite4.1:3b` and `ibm/granite3.3-guardian:8b` beforehand, as they are set as defaults.
 
 For Risk Identification
 
 ```
-ollama pull granite3.3:8b
+ollama pull granite4.1:3b
 ```
 
 For Risk Assessment
@@ -193,7 +193,7 @@ Run end-to-end certification — risk identification via AI Atlas Nexus, Guardia
 mellea-skills certify <Your-local-path>/skills/weather/weather_mellea                      # provide path to the compiled skill directory
 mellea-skills certify <Your-local-path>/skills/weather/weather_mellea --enforce            # Block on risk detection
 mellea-skills certify <Your-local-path>/skills/weather/weather_mellea --fixture rain_check # Run specific fixture - rain_check
-mellea-skills certify <Your-local-path>/skills/weather/weather_mellea --model granite3.3:8b --guardian-model ibm/granite3.3-guardian:8b --inference-engine ollama    # Using different risk model, guardian model and inference engine
+mellea-skills certify <Your-local-path>/skills/weather/weather_mellea --model granite4.1:3b --guardian-model ibm/granite3.3-guardian:8b --inference-engine ollama    # Using different risk model, guardian model and inference engine
 ```
 
 ### Export Compiled Mellea Skill
@@ -222,7 +222,7 @@ skills/weather/audit/
 
 ## Example Outputs
 
-The [`examples/`](https://github.com/generative-computing/mellea-skills-compiler/tree/main/examples) directory contains pre-compiled, validated Mellea pipeline packages — runnable end-to-end against the project's Ollama + `granite3.3:8b` baseline. Each is a curated reference snapshot of what `mellea-skills compile` produces under the current architecture.
+The [`examples/`](https://github.com/generative-computing/mellea-skills-compiler/tree/main/examples) directory contains pre-compiled, validated Mellea pipeline packages — runnable end-to-end against the project's Ollama + `granite4.1:3b` baseline. Each is a curated reference snapshot of what `mellea-skills compile` produces under the current architecture.
 
 | Skill                                                                          | Tier    | Archetype                  | Description                                                                                                                                    |
 | ------------------------------------------------------------------------------ | ------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
