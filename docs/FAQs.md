@@ -1,9 +1,9 @@
 # Frequently Asked Questions
 
 !!! tip "Question not answered?"
-If you find that you have questions that should be
-covered here, feel free to reach out to us by raising an issue
-in the github repo.
+    If you find that you have questions that should be
+    covered here, feel free to reach out to us by raising an issue
+    in the github repo.
 
 ## General
 
@@ -159,7 +159,7 @@ To keep the first compile experience non-interactive and reproducible. Interacti
 
 - Python >=3.11 and <3.14.4 (ai-atlas-nexus requires 3.11+ and <3.14.4; Mellea supports 3.11+)
 - Claude Code (for the `/mellea-fy` compilation step)
-- Ollama running locally with `granite4.1:3B` pulled (for compiled-skill execution and Guardian checks)
+- Ollama running locally with `granite4.1:3b` pulled (for compiled-skill execution and Guardian checks)
 
 ### Can I run just the compilation step without certification?
 
@@ -244,7 +244,7 @@ Not yet. The current implementation uses a static YAML mapping of governance act
 
 ### Can I use this with models other than Granite?
 
-The compiled Mellea pipelines can target any model supported by Mellea's backend configuration; today the project default is `ollama` + `granite4.1:3B` (set in [`src/mellea_skills_compiler/compile/claude/data/runtime_defaults.json`](src/mellea_skills_compiler/compile/claude/data/runtime_defaults.json), overridable per compile via `--skill-backend` / `--skill-model`). The certification pipeline's Guardian checks currently use Granite Guardian 3.3 8B via Ollama. The `/mellea-fy` compilation step itself uses Claude (typically Sonnet) and is not configurable to use other LLMs at this time.
+The compiled Mellea pipelines can target any model supported by Mellea's backend configuration; today the project default is `ollama` + `granite4.1:3b` (set in [`src/mellea_skills_compiler/compile/claude/data/runtime_defaults.json`](src/mellea_skills_compiler/compile/claude/data/runtime_defaults.json), overridable per compile via `--skill-backend` / `--skill-model`). The certification pipeline's Guardian checks currently use Granite Guardian 3.3 8B via Ollama. The `/mellea-fy` compilation step itself uses Claude (typically Sonnet) and is not configurable to use other LLMs at this time.
 
 ### What about evaluation and benchmarks?
 

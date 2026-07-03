@@ -11,9 +11,7 @@ Begin operation by using the Mellea Skills Compiler Node.js Interactive CLI or s
 ```
 
 ## Command-based CLI
-
 ### Compile Agent Skill
-
 #### Compile Agent Skill - Option 1 (Recommended)
 
 Compile a skill into a typed Mellea pipeline via the CLI:
@@ -64,7 +62,7 @@ Run end-to-end certification — risk identification via AI Atlas Nexus, Guardia
 mellea-skills certify <Your-local-path>/skills/weather/weather_mellea                      # provide path to the compiled skill directory
 mellea-skills certify <Your-local-path>/skills/weather/weather_mellea --enforce            # Block on risk detection
 mellea-skills certify <Your-local-path>/skills/weather/weather_mellea --fixture rain_check # Run specific fixture - rain_check
-mellea-skills certify <Your-local-path>/skills/weather/weather_mellea --model granite4.1:3B --guardian-model ibm/granite3.3-guardian:8b --inference-engine ollama    # Using different risk model, guardian model and inference engine
+mellea-skills certify <Your-local-path>/skills/weather/weather_mellea --model granite4.1:3b --guardian-model ibm/granite3.3-guardian:8b --inference-engine ollama    # Using different risk model, guardian model and inference engine
 ```
 
 ### Export Compiled Mellea Skill
