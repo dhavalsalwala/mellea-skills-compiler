@@ -64,15 +64,14 @@ console = Console(log_time=True)
 LOGGER = configure_logger()
 
 
-def _run_single_fixture(pipeline_fn: Callable, fixture: Dict, pipeline_dir: Path):
+def _run_single_fixture(pipeline_fn: Callable, fixture: Dict):
     report = None
     try:
         context = fixture["context"]
-        with contextlib.chdir(pipeline_dir):
-            if isinstance(context, dict):
-                report = pipeline_fn(**context)
-            else:
-                report = pipeline_fn(context)
+        if isinstance(context, dict):
+            report = pipeline_fn(**context)
+        else:
+            report = pipeline_fn(context)
         LOGGER.info("Pipeline executed successfully.")
     except PluginViolationError as e:
         LOGGER.warning("Pipeline BLOCKED by Guardian enforcement.")
@@ -187,7 +186,7 @@ def run_pipeline(
             raise
 
         # run given fixture
-        output = _run_single_fixture(pipeline_fn, fixture.dict(), pipeline_dir)
+        output = _run_single_fixture(pipeline_fn, fixture.dict())
 
         # output
         console.print("\n[bold blue]OUTPUT:[/]")
@@ -350,7 +349,7 @@ def full_pipeline(
     report_json_path = None
     try:
         # run the given fixture
-        report = _run_single_fixture(pipeline_fn, fixture, pipeline_dir)
+        report = _run_single_fixture(pipeline_fn, fixture)
         if report:
             # Write the pipeline's report (works for any Pydantic model)
             report_json_path = output_dir / "pipeline_report.json"
