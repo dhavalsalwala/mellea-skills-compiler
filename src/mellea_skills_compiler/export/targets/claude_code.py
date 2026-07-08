@@ -210,10 +210,13 @@ def _guardian_inline_snippet(enforce: bool = False) -> str:
         "from mellea_skills_compiler.plugins.audit import AuditTrailPlugin\n"
         "_adapter_dir = Path(os.environ.get('ADAPTER_DIR', '.'))\n"
         "_manifest_path = _adapter_dir / 'policy_manifest.json'\n"
+        "guardian_plugin = None\n"
+        "audit_plugin = None\n"
         "if _manifest_path.exists():\n"
         f"    guardian_plugin = {plugin_class}(PolicyManifest.from_json(_manifest_path))\n"
         "    guardian_plugin.register()\n"
-        "    AuditTrailPlugin(log_path=_adapter_dir / 'audit' / 'runtime_audit.jsonl', guardian_plugin=guardian_plugin).register()\n"
+        "    audit_plugin = AuditTrailPlugin(log_path=_adapter_dir / 'audit' / 'runtime_audit.jsonl', guardian_plugin=guardian_plugin)\n"
+        "    audit_plugin.register()\n"
     )
 
 
@@ -231,6 +234,15 @@ def _run_sh_synchronous_oneshot(
     inv_args = _invocation_args(pattern, params)
     header = _bash_header(export_version)
     guardian = _guardian_inline_snippet(enforce=enforce) if has_policy_manifest else ""
+    cleanup = (
+        "finally:\n"
+        "    if guardian_plugin is not None:\n"
+        "        guardian_plugin.deregister()\n"
+        "    if audit_plugin is not None:\n"
+        "        audit_plugin.deregister()\n"
+        if has_policy_manifest
+        else ""
+    )
     return (
         header
         + "\n"
@@ -243,9 +255,7 @@ def _run_sh_synchronous_oneshot(
         + "except Exception as exc:\n"
         + "    print(json.dumps({'status': 'error', 'message': str(exc)}), file=sys.stderr)\n"
         + "    sys.exit(1)\n"
-        + "finally:\n"
-        + "    guardian_plugin.deregister()\n"
-        + "    audit_plugin.deregister()\n"
+        + cleanup
         + "if hasattr(result, 'model_dump'):\n"
         + "    output = result.model_dump()\n"
         + "elif result is None:\n"

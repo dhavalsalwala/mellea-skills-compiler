@@ -180,6 +180,45 @@ class TestClaudeCodeGuardianInjection:
         )
         assert "GuardianAuditPlugin" not in result
 
+    def test_audit_plugin_bound_to_variable(self):
+        """Regression: the finally block deregisters audit_plugin, so the snippet
+        must bind the AuditTrailPlugin to that name rather than constructing it inline.
+        Previously it emitted `AuditTrailPlugin(...).register()` (no assignment) while
+        `finally` called `audit_plugin.deregister()`, raising NameError on every run."""
+        result = _render_run_sh(
+            modality="synchronous_oneshot",
+            package_name="my_skill",
+            entry_module="pipeline",
+            entry_function="run_pipeline",
+            pattern="no_args",
+            params=[],
+            export_version="0.1.0",
+            has_policy_manifest=True,
+        )
+        assert "audit_plugin = AuditTrailPlugin(" in result
+        assert "audit_plugin.register()" in result
+        assert "audit_plugin.deregister()" in result
+
+    def test_generated_python_compiles(self):
+        """Regression: the embedded `python -c` body must be valid Python. The old
+        finally block referenced an undefined `audit_plugin`; guard against any
+        recurrence by compiling the extracted body."""
+        result = _render_run_sh(
+            modality="synchronous_oneshot",
+            package_name="my_skill",
+            entry_module="pipeline",
+            entry_function="run_pipeline",
+            pattern="no_args",
+            params=[],
+            export_version="0.1.0",
+            has_policy_manifest=True,
+        )
+        # Extract the body between `exec python -c "` and the closing `" -- "$@"`.
+        start = result.index('exec python -c "') + len('exec python -c "')
+        end = result.index('" -- "$@"')
+        body = result[start:end]
+        compile(body, "<generated run.sh body>", "exec")
+
 
 # ---------------------------------------------------------------------------
 # Integration tests — run_export() with a certified skill
