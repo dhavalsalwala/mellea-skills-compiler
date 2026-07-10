@@ -109,7 +109,8 @@ def _call_guardian(
     try:
         # Load inference model
         guardian_model = InferenceService(inference_engine).guardian(
-            guardian_model, parameters={"temperature": 0}
+            guardian_model,
+            parameters={"temperature": 0, "num_ctx": 1024, "think": False},
         )
 
         # Batch inferencing guardian risks

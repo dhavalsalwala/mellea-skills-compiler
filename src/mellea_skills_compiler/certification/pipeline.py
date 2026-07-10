@@ -13,12 +13,16 @@ End-to-end demonstration:
 """
 
 import json
+import random
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 from typing import Callable, Dict, Optional
 
 from mellea.plugins import PluginViolationError
 from rich.console import Console
+from tqdm import tqdm
 
 from mellea_skills_compiler.certification.classification import (
     classify_governance_requirements,
@@ -40,7 +44,7 @@ from mellea_skills_compiler.enums import (
     NexusRiskSource,
     SpecFileFormat,
 )
-from mellea_skills_compiler.models import PolicyManifest, RunResult
+from mellea_skills_compiler.models import ResolvedFixture, RunResult
 from mellea_skills_compiler.plugins.audit import AuditTrailPlugin
 from mellea_skills_compiler.plugins.guardian import (
     GuardianPlugin,
@@ -59,35 +63,19 @@ console = Console(log_time=True)
 LOGGER = configure_logger()
 
 
-def _run_single_fixture(pipeline_fn: Callable, fixture: Dict):
-    report = None
+def _run_single_fixture(pipeline_fn: Callable, fixture: ResolvedFixture):
     try:
-        context = fixture["context"]
-        if isinstance(context, dict):
-            report = pipeline_fn(**context)
+        if isinstance(fixture.context, Dict):
+            output = pipeline_fn(**fixture.context)
         else:
-            report = pipeline_fn(context)
-        LOGGER.info("Pipeline executed successfully.")
+            output = pipeline_fn(fixture.context)
+        output = output.model_dump() if hasattr(output, "model_dump") else output
     except PluginViolationError as e:
-        LOGGER.warning("Pipeline BLOCKED by Guardian enforcement.")
-        LOGGER.warning(
-            f"The decomposed pipeline was halted because a generation triggered a Guardian risk detection in ENFORCE mode. {e.reason}"
-        )
+        violation_error_msg = f"Fixture[{fixture.id}] - Pipeline BLOCKED by Guardian enforcement because a generation triggered a Guardian risk detection in ENFORCE mode. {e.reason}"
+        output = f"Error: {violation_error_msg}"
+        LOGGER.warning(violation_error_msg)
 
-    return report
-
-
-def _get_fixture(fixture_id, fixtures):
-    # Get the desired fixture
-    if fixture_id is None:
-        return fixtures[0]
-    else:
-        for f in fixtures:
-            if fixture_id == f["id"]:
-                return f
-
-        available = [f["id"] for f in fixtures]
-        raise ValueError(f"Unknown fixture '{fixture_id}'. Available: {available}")
+    return output
 
 
 def run_pipeline(
@@ -237,7 +225,7 @@ def full_pipeline(
     fixtures = load_fixtures(pipeline_dir)
 
     # Get the desired fixture
-    fixture = _get_fixture(fixture_id, fixtures)
+    # fixture = _get_fixture(fixture_id, fixtures)
 
     # Get guardian mode - AUDIT or ENFORCE
     guardian_mode = GuardianMode("enforce" if enforce else "audit")
@@ -327,23 +315,41 @@ def full_pipeline(
     # ── Step 4: Run the decomposed pipeline ───────────────────────────
     print()
     LOGGER.info("Running decomposed pipeline from %s...", pipeline_dir.name)
-    LOGGER.info(f"  - Fixture: {fixture["id"]}")
+    LOGGER.info("  - Fixtures identified:")
+    run_fixtures = random.sample(fixtures, 3)
+    for fixture in run_fixtures:
+        LOGGER.info(f"      - {fixture.id}")
     LOGGER.info(f"  - Guardian checks [{guardian_mode}] every generation (pre + post).")
     LOGGER.info("  - Audit Trail checks every end points (pre + post).")
 
-    report_json_path = None
+    fixture_results = []
     try:
-        # run the given fixture
-        report = _run_single_fixture(pipeline_fn, fixture)
-        if report:
-            # Write the pipeline's report (works for any Pydantic model)
-            report_json_path = output_dir / "pipeline_report.json"
-            if hasattr(report, "model_dump_json"):
-                report_json_path.write_text(report.model_dump_json(indent=2))
-            else:
-                report_json_path.write_text(json.dumps(report, indent=2, default=str))
+        # run fixtures
+        with ThreadPoolExecutor() as executor:
 
-            LOGGER.info("Pipeline report: %s", report_json_path)
+            # Submit all fixtures
+            future_to_fixture = {
+                executor.submit(_run_single_fixture, pipeline_fn, f): f
+                for f in run_fixtures
+            }
+
+            # Collect results as they complete
+            for future in as_completed(future_to_fixture):
+                fixture = future_to_fixture[future]
+                results = fixture.dict()
+                try:
+                    output = future.result(timeout=300)
+                except Exception as e:
+                    output = f"Error: {str(e)}"
+                finally:
+                    results.update({"output": output})
+                    fixture_results.append(results)
+
+        report_json_path = output_dir / "pipeline_report.json"
+        report_json_path.write_text(json.dumps(fixture_results, indent=2, default=str))
+        LOGGER.info("Pipeline report: %s", report_json_path)
+
+        LOGGER.info("Pipeline run completed.")
     except Exception as e:
         LOGGER.error(f"Pipeline run failed: {str(e)}")
     finally:
@@ -424,7 +430,7 @@ def full_pipeline(
     LOGGER.info("=" * 70)
     print("")
     LOGGER.info("  Skill: %s (%s)", skill_name, sensitivity["tier_display"])
-    LOGGER.info("  Fixture: %s", fixture["id"])
+    LOGGER.info("  Fixtures: %s", len(fixtures))
     LOGGER.info("  Guardian risks: %d (from Nexus)", len(manifest.risks))
     LOGGER.info(
         "  Guardian verdicts: %d total, %d Passed, %d flagged, %d failed",
@@ -471,7 +477,7 @@ def full_pipeline(
     return RunResult(
         guardian_mode=guardian_mode,
         guardian_verdict=verdict_summary,
-        fixture_summary={"name": fixture, "output": report_json_path},
+        fixture_summary=fixture_results,
         audit_summary=audit_summary,
         guardian_audit_dir=output_dir,
     )

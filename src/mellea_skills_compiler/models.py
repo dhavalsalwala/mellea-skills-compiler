@@ -158,3 +158,13 @@ class RunResult:
 
     def dump(self):
         return asdict(self)
+
+
+@dataclass
+class ResolvedFixture:
+    id: str
+    context: Dict[str, Any]
+    description: str
+
+    def dict(self):
+        return asdict(self)
