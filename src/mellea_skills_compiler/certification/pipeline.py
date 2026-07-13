@@ -172,15 +172,12 @@ def run_pipeline(
         fixtures = load_fixtures(pipeline_dir)
 
         # Resolve input from possible sources
-        try:
-            fixture = resolve_input(
-                pipeline_fn=pipeline_fn,
-                fixture_id=fixture_id,
-                input=input,
-                fixtures=fixtures,
-            )
-        except InputResolutionError as e:
-            raise Exception(f"Input resolution failed - {e}")
+        fixture = resolve_input(
+            pipeline_fn=pipeline_fn,
+            fixture_id=fixture_id,
+            input=input,
+            fixtures=fixtures,
+        )
 
         # run given fixture
         output = _run_single_fixture(pipeline_fn, fixture.dict())

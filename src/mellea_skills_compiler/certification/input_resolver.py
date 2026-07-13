@@ -28,7 +28,7 @@ class InputResolutionError(Exception):
 
 
 @dataclass(kw_only=True)
-class ResolvedFixture:
+class Fixture:
     id: str
     context: Dict[str, Any]
     description: str
@@ -82,7 +82,7 @@ def resolve_input(
     fixture_id: Optional[str] = None,
     input: Optional[str] = None,
     fixtures: Optional[list] = None,
-) -> ResolvedFixture:
+) -> Fixture:
     """Resolve input from multiple possible sources.
 
     Implements Stage 1 mutual exclusion and resolution logic.
@@ -114,7 +114,7 @@ def resolve_input(
     if fixture_id is not None:
         for f in fixtures:
             if f["id"] == fixture_id:
-                return ResolvedFixture(**f)
+                return Fixture(**f)
         raise InputResolutionError(
             f"Unknown fixture '{fixture_id}'. Available: {', '.join([f["id"] for f in fixtures])}"
         )
@@ -133,7 +133,7 @@ def resolve_input(
             params_data = {}
             for param in params:
                 params_data[param.name] = Prompt.ask(f"[blue]Enter[/] {param.name}")
-            return ResolvedFixture(
+            return Fixture(
                 id="User_Input", context=params_data, description="Prompt Input"
             )
         else:
@@ -148,7 +148,7 @@ def resolve_input(
                 try:
                     parsed = _parse_structured_input(input)
                     LOGGER.info("Interpreting input as structured (JSON/YAML object)")
-                    return ResolvedFixture(
+                    return Fixture(
                         id="User_Input", context=parsed, description="JSON/YAML Input"
                     )
                 except InputResolutionError as e:
@@ -162,7 +162,7 @@ def resolve_input(
                 # Single-parameter skill - bind raw string directly
                 param_name = params[0].name
                 LOGGER.info(f"Binding raw string to single parameter '{param_name}'")
-                return ResolvedFixture(
+                return Fixture(
                     id="User_Input",
                     context={param_name: input},
                     description="Raw Input",

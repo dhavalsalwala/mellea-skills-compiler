@@ -53,6 +53,62 @@ If the run fails with `ConnectionError`, your Ollama endpoint is
 unreachable. Check `OLLAMA_API_URL` and that `ollama list` shows
 `granite4.1:3b`.
 
+### Input Format Examples
+
+1. Raw String
+
+For skills with a single parameter, you can pass a plain string directly:
+```
+mellea-skills run skills/weather/weather_mellea --input "Will it rain in Tokyo tomorrow?"
+```
+
+2. JSON String
+
+For skills with multiple parameters, pass a JSON object with parameter names as keys:
+```
+mellea-skills run skills/sentry/sentry_mellea --input '{"query": "Will it rain in Tokyo tomorrow?"}'
+```
+
+3. File Input (JSON)
+
+Use file:// prefix to read structured JSON from a file:
+```
+mellea-skills run skills/weather/weather_mellea --input file://input.json
+```
+input.json:
+```
+{
+  "query": "Will it rain in Tokyo tomorrow?"
+}
+```
+
+4. File Input (YAML)
+
+YAML files are also supported via file:// prefix:
+```
+mellea-skills run skills/example/example_mellea --input file://input.yaml
+```
+input.yaml:
+```
+query: Will it rain in Tokyo tomorrow?
+```
+
+5. Interactive Stdin Input
+
+Use - to prompt for each parameter interactively:
+```bash
+mellea-skills run skills/weather/weather_mellea --input -
+# This will prompt:
+Enter query: Will it rain in Tokyo tomorrow?
+```
+
+6. Fixture Input (Alternative to --input)
+
+Use a pre-defined fixture instead of --input:
+```bash
+mellea-skills run skills/weather/weather_mellea --fixture rain_check
+```
+
 ---
 
 ## 2. The Skill Tier System
