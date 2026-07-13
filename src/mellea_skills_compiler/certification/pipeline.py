@@ -18,7 +18,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, List, Optional
 
 from mellea.plugins import PluginViolationError
 from rich.console import Console
@@ -44,7 +44,7 @@ from mellea_skills_compiler.enums import (
     NexusRiskSource,
     SpecFileFormat,
 )
-from mellea_skills_compiler.models import ResolvedFixture, RunResult
+from mellea_skills_compiler.models import Fixture, FixtureResult, RunResult
 from mellea_skills_compiler.plugins.audit import AuditTrailPlugin
 from mellea_skills_compiler.plugins.guardian import (
     GuardianPlugin,
@@ -63,19 +63,38 @@ console = Console(log_time=True)
 LOGGER = configure_logger()
 
 
-def _run_single_fixture(pipeline_fn: Callable, fixture: ResolvedFixture):
+def _run_single_fixture(pipeline_fn: Callable, fixture: Fixture):
     try:
         if isinstance(fixture.context, Dict):
             output = pipeline_fn(**fixture.context)
         else:
             output = pipeline_fn(fixture.context)
-        output = output.model_dump() if hasattr(output, "model_dump") else output
     except PluginViolationError as e:
         violation_error_msg = f"Fixture[{fixture.id}] - Pipeline BLOCKED by Guardian enforcement because a generation triggered a Guardian risk detection in ENFORCE mode. {e.reason}"
-        output = f"Error: {violation_error_msg}"
         LOGGER.warning(violation_error_msg)
+        return FixtureResult.blocked(content=fixture, output=violation_error_msg)
+    except Exception as e:
+        error = f"Fixture {fixture.id} execution failed. {str(e)}"
+        LOGGER.error(error)
+        return FixtureResult.failed(content=fixture, output=error)
 
-    return output
+    return FixtureResult.success(
+        content=fixture,
+        output=output,
+    )
+
+
+def _get_fixture(fixture_id: str, fixtures: List[Fixture]):
+    # Get the desired fixture
+    if fixture_id is None:
+        return fixtures[0]
+    else:
+        for f in fixtures:
+            if fixture_id == f.id:
+                return f
+
+        available = [f.id for f in fixtures]
+        raise ValueError(f"Unknown fixture '{fixture_id}'. Available: {available}")
 
 
 def run_pipeline(
@@ -153,40 +172,39 @@ def run_pipeline(
         pipeline_fn = load_skill_pipeline(pipeline_dir)
 
         # Load fixtures from the pipeline directory
-        fixtures = load_fixtures(pipeline_dir)
+        fixtures: List[Fixture] = load_fixtures(pipeline_dir)
 
         # Get the desired fixture
-        fixture = _get_fixture(fixture_id, fixtures)
+        fixture: Fixture = _get_fixture(fixture_id, fixtures)
 
         # run given fixture
-        output = _run_single_fixture(pipeline_fn, fixture)
+        fixture_result: FixtureResult = _run_single_fixture(pipeline_fn, fixture)
 
         # output
-        console.print("\n[bold blue]OUTPUT:[/]")
-        print(output)
-
-        run_result = RunResult(
-            guardian_mode=guardian_mode,
-            guardian_verdict=guardian_plugin.summary() if guardian_plugin else None,
-            fixture_summary={"name": fixture, "output": output},
-            audit_summary=audit_plugin.summary() if audit_plugin else None,
-        )
-
-        # 2. Write RunResult to the JSON file
-        with open(
-            run_dir / "run_result.json", "w", encoding="utf-8"
-        ) as run_result_file:
-            json.dump(run_result.dump(), run_result_file, indent=4, sort_keys=True)
-
-        # Return RunResult with the summary of the run
-        return run_result
+        console.print(f"\n[bold blue]OUTPUT:[/]\n\n{fixture_result.output}")
 
     except Exception as e:
         LOGGER.error(f"Pipeline run failed: {str(e)}")
+        return RunResult(
+            success=False,
+            audit_dir=run_dir,
+            guardian_mode=guardian_mode,
+            fixture_results=None,
+            guardian_verdicts=guardian_plugin.summary() if guardian_plugin else None,
+            error_message=str(e),
+        )
     finally:
         if guardian_plugin:
             guardian_plugin.deregister()
             audit_plugin.deregister()
+
+    return RunResult(
+        success=True,
+        audit_dir=run_dir,
+        guardian_mode=guardian_mode,
+        fixture_results=[fixture_result],
+        guardian_verdicts=guardian_plugin.summary() if guardian_plugin else None,
+    )
 
 
 def full_pipeline(
@@ -316,13 +334,13 @@ def full_pipeline(
     print()
     LOGGER.info("Running decomposed pipeline from %s...", pipeline_dir.name)
     LOGGER.info("  - Fixtures identified:")
-    run_fixtures = random.sample(fixtures, 3)
-    for fixture in run_fixtures:
+    sample_fixtures = random.sample(fixtures, 3) if len(fixtures) >= 3 else fixtures
+    for fixture in sample_fixtures:
         LOGGER.info(f"      - {fixture.id}")
     LOGGER.info(f"  - Guardian checks [{guardian_mode}] every generation (pre + post).")
     LOGGER.info("  - Audit Trail checks every end points (pre + post).")
 
-    fixture_results = []
+    fixture_results: List[FixtureResult] = []
     try:
         # run fixtures
         with ThreadPoolExecutor() as executor:
@@ -330,28 +348,36 @@ def full_pipeline(
             # Submit all fixtures
             future_to_fixture = {
                 executor.submit(_run_single_fixture, pipeline_fn, f): f
-                for f in run_fixtures
+                for f in sample_fixtures
             }
 
             # Collect results as they complete
             for future in as_completed(future_to_fixture):
                 fixture = future_to_fixture[future]
-                results = fixture.dict()
-                try:
-                    output = future.result(timeout=300)
-                except Exception as e:
-                    output = f"Error: {str(e)}"
-                finally:
-                    results.update({"output": output})
-                    fixture_results.append(results)
+                fixture_result: FixtureResult = future.result(timeout=300)
+                fixture_results.append(fixture_result)
 
-        report_json_path = output_dir / "pipeline_report.json"
-        report_json_path.write_text(json.dumps(fixture_results, indent=2, default=str))
-        LOGGER.info("Pipeline report: %s", report_json_path)
+        LOGGER.info(f"✓ Executed {len(sample_fixtures)} fixture(s)")
 
-        LOGGER.info("Pipeline run completed.")
+        # ── Fixture Execution Summary ──────────────────────────────
+        LOGGER.info("")
+        LOGGER.info("=" * 70)
+        LOGGER.info("Fixture Execution Summary")
+        LOGGER.info("=" * 70)
+        LOGGER.info("Total: %d", len(sample_fixtures))
+        LOGGER.info(
+            "Passed: %d", len([f for f in fixture_results if f.status == "success"])
+        )
+        LOGGER.info(
+            "Blocked (Risk detected): %d",
+            len([f for f in fixture_results if f.status == "blocked"]),
+        )
+        LOGGER.info(
+            "Failed: %d", len([f for f in fixture_results if f.status == "failed"])
+        )
+
     except Exception as e:
-        LOGGER.error(f"Pipeline run failed: {str(e)}")
+        raise Exception(f"✗ Fixtures execution failed with error: {str(e)}")
     finally:
         guardian_plugin.deregister()
         audit_plugin.deregister()
@@ -363,14 +389,10 @@ def full_pipeline(
     LOGGER.info("=" * 70)
 
     verdict_summary = guardian_plugin.summary()
-    LOGGER.info("  Total verdicts: %d", len(verdict_summary["all_verdicts"]))
-    LOGGER.info("  Passed (No risk): %d", len(verdict_summary["passed_verdicts"]))
-    LOGGER.info(
-        "  Flagged (Risk detected): %d", len(verdict_summary["flagged_verdicts"])
-    )
-    LOGGER.info(
-        "  Failed (Guardian error): %d", len(verdict_summary["failed_verdicts"])
-    )
+    LOGGER.info("Total verdicts: %d", len(verdict_summary["all_verdicts"]))
+    LOGGER.info("Passed (No risk): %d", len(verdict_summary["passed_verdicts"]))
+    LOGGER.info("Flagged (Risk detected): %d", len(verdict_summary["flagged_verdicts"]))
+    LOGGER.info("Failed (Guardian error): %d", len(verdict_summary["failed_verdicts"]))
     if verdict_summary["flagged_verdicts"]:
         LOGGER.info("  Flagged risks:")
         for v in verdict_summary["flagged_verdicts"]:
@@ -386,7 +408,7 @@ def full_pipeline(
 
     audit_summary = audit_plugin.summary()
     for k, v in audit_summary.items():
-        LOGGER.info("  %s: %s", k.replace("_", " ").title(), v)
+        LOGGER.info("%s: %s", k.replace("_", " ").title(), v)
 
     # ── Step 7: Compliance classification ─────────────────────────────
     LOGGER.info("")
@@ -398,7 +420,7 @@ def full_pipeline(
     counts = compliance.counts
     total = sum(counts.values())
     LOGGER.info(
-        "  AUTOMATED: %d  |  PARTIAL: %d  |  MANUAL: %d  (total: %d)",
+        "AUTOMATED: %d  |  PARTIAL: %d  |  MANUAL: %d  (total: %d)",
         counts["AUTOMATED"],
         counts["PARTIAL"],
         counts["MANUAL"],
@@ -420,7 +442,7 @@ def full_pipeline(
     )
     cert_path = output_dir / "CERTIFICATION.md"
     cert_path.write_text(cert_report)
-    LOGGER.info(f"  Report generated: {cert_path}")
+    LOGGER.info(f"Report generated: {cert_path}")
 
     # ── Final summary ─────────────────────────────────────────────────
     print("")
@@ -429,30 +451,26 @@ def full_pipeline(
     LOGGER.info(f"COMPLETE — {skill_name} [{guardian_mode} mode]")
     LOGGER.info("=" * 70)
     print("")
-    LOGGER.info("  Skill: %s (%s)", skill_name, sensitivity["tier_display"])
-    LOGGER.info("  Fixtures: %s", len(fixtures))
-    LOGGER.info("  Guardian risks: %d (from Nexus)", len(manifest.risks))
+    LOGGER.info("Skill: %s (%s)", skill_name, sensitivity["tier_display"])
+    LOGGER.info("Fixtures: %s", len(sample_fixtures))
+    LOGGER.info("Guardian risks: %d (from Nexus)", len(manifest.risks))
     LOGGER.info(
-        "  Guardian verdicts: %d total, %d Passed, %d flagged, %d failed",
+        "Guardian verdicts: %d total, %d Passed, %d flagged, %d failed",
         len(verdict_summary["all_verdicts"]),
         len(verdict_summary["passed_verdicts"]),
         len(verdict_summary["flagged_verdicts"]),
         len(verdict_summary["failed_verdicts"]),
     )
-    LOGGER.info("  Audit events: %d", len(audit_entries))
-    LOGGER.info(
-        "  Compliance: AUTOMATED=%d PARTIAL=%d MANUAL=%d",
-        counts["AUTOMATED"],
-        counts["PARTIAL"],
-        counts["MANUAL"],
-    )
+    LOGGER.info("Audit events: %d", len(audit_entries))
     LOGGER.info("")
-    LOGGER.info("  Artifacts in %s/:", output_dir)
-    LOGGER.info("    policy_manifest.json — Policy manifest")
-    LOGGER.info("    POLICY.md            — Policy document")
-    LOGGER.info("    pipeline_report.json — Pipeline Report")
-    LOGGER.info("    audit_trail.jsonl    — Runtime Audit Trail")
-    LOGGER.info("    CERTIFICATION.md     — Certification Report")
+    LOGGER.info("Compliance:")
+    LOGGER.info(f"  AUTOMATED={counts["AUTOMATED"]}")
+    LOGGER.info(f"  PARTIAL={counts["PARTIAL"]}")
+    LOGGER.info(f"  MANUAL={counts["MANUAL"]}")
+    LOGGER.info("")
+    LOGGER.info(f"Artifacts written to {output_dir}")
+    for file in [f for f in output_dir.iterdir() if f.is_file()]:
+        LOGGER.info(f"  {file.name}")
     LOGGER.info("")
 
     if all(risk.source == NexusRiskSource.DEFAULT_FALLBACK for risk in manifest.risks):
@@ -462,22 +480,21 @@ def full_pipeline(
         LOGGER.info("")
 
     if verdict_summary["flagged_verdicts"]:
-        LOGGER.warning("  STATUS: RISKS DETECTED — review audit trail")
+        LOGGER.warning("STATUS: RISKS DETECTED — review audit trail")
     if verdict_summary["failed_verdicts"]:
-        LOGGER.warning(
-            "  STATUS: RISKS ASSESSMENT FAILURE DETECTED — review audit trail"
-        )
+        LOGGER.warning("STATUS: RISKS ASSESSMENT FAILURE DETECTED — review audit trail")
     if (
         not verdict_summary["flagged_verdicts"]
         and not verdict_summary["failed_verdicts"]
     ):
-        LOGGER.info("  STATUS: ALL CHECKS PASSED")
+        LOGGER.info("STATUS: ALL CHECKS PASSED")
 
+    LOGGER.info("")
     # Return RunResult with the summary of the run
     return RunResult(
+        success=True,
+        audit_dir=output_dir,
         guardian_mode=guardian_mode,
-        guardian_verdict=verdict_summary,
-        fixture_summary=fixture_results,
-        audit_summary=audit_summary,
-        guardian_audit_dir=output_dir,
+        fixture_results=fixture_results,
+        guardian_verdicts=verdict_summary,
     )

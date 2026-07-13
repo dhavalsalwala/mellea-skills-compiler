@@ -3,7 +3,8 @@ import logging
 from collections import Counter
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
-from typing import Any, Dict, List, Optional, Union
+from pathlib import Path
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from mellea_skills_compiler.enums import CoverageLevel, GovernanceTaxonomy, GuardianMode
 from mellea_skills_compiler.toolkit.logging import configure_logger
@@ -149,22 +150,78 @@ class GuardianVerdict:
 
 
 @dataclass
-class RunResult:
-    guardian_mode: GuardianMode
-    guardian_verdict: Dict[str, List[GuardianVerdict]]
-    fixture_summary: Dict[str, Any]
-    audit_summary: Dict[str, Any]
-    guardian_audit_dir: Optional[str] = None
-
-    def dump(self):
-        return asdict(self)
-
-
-@dataclass
-class ResolvedFixture:
+class Fixture:
     id: str
     context: Dict[str, Any]
     description: str
 
     def dict(self):
         return asdict(self)
+
+
+@dataclass
+class FixtureResult:
+    status: Literal["success", "failed", "blocked"]
+    content: Fixture
+    output: Any
+
+    def dict(self):
+        return asdict(self)
+
+    @classmethod
+    def success(cls, **kwargs):
+        return cls(status="success", **kwargs)
+
+    @classmethod
+    def blocked(cls, **kwargs):
+        return cls(status="blocked", **kwargs)
+
+    @classmethod
+    def failed(cls, **kwargs):
+        return cls(status="failed", **kwargs)
+
+
+@dataclass
+class RunResult:
+    success: bool
+    audit_dir: Optional[Path]
+    guardian_mode: GuardianMode
+    fixture_results: List[FixtureResult]
+    guardian_verdicts: Optional[Dict[str, List[GuardianVerdict]]] = None
+    error_message: Optional[str] = None
+
+    def dump(self):
+        return asdict(self)
+
+    def __post_init__(self):
+        # Write RunResult to the JSON file
+        run_result_path = self.audit_dir / "run_result.json"
+        with open(run_result_path, "w", encoding="utf-8") as run_result_file:
+            json.dump(
+                self.dump(), run_result_file, indent=4, sort_keys=True, default=str
+            )
+
+        LOGGER.info(f"Run Result written to {run_result_path}")
+
+    @classmethod
+    def failed(
+        cls, audit_dir, guardian_mode, fixture_results, guardian_verdicts, error_message
+    ):
+        return cls(
+            success=False,
+            audit_dir=audit_dir,
+            guardian_mode=guardian_mode,
+            fixture_results=fixture_results,
+            guardian_verdicts=guardian_verdicts,
+            error_message=error_message,
+        )
+
+    @classmethod
+    def blocked(cls, audit_dir, fixture_results, violation):
+        return cls(
+            success=False,
+            audit_dir=audit_dir,
+            fixture_results=fixture_results,
+            guardian_verdicts=[violation],
+            error_message=violation.get("reason"),
+        )
