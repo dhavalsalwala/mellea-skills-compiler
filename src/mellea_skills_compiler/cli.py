@@ -182,13 +182,21 @@ def run(
         ),
     ],
     fixture: Annotated[
-        str,
+        Optional[str],
         typer.Option(
-            "--fixture",
             "-f",
-            help="Run pipeline for a specific fixture.",
+            "--fixture",
+            help="Use a pre-canned fixture.",
         ),
-    ],
+    ] = None,
+    input: Annotated[
+        Optional[str],
+        typer.Option(
+            "--input",
+            "-i",
+            help="Input value. Raw string or Use 'file://' to read from file, '-' for stdin.",
+        ),
+    ] = None,
     enforce: Annotated[
         bool,
         typer.Option(
@@ -208,13 +216,21 @@ def run(
 ):
     """
     Run Mellea Skill Pipeline.
+
+    Input sources (mutually exclusive):
+      --input, -i     Raw value; 'file://' reads from file, '-' from stdin
+      --fixture       Use a pre-canned fixture
     """
 
     try:
         from mellea_skills_compiler.certification.pipeline import run_pipeline
 
         run_pipeline(
-            Path(pipeline_dir), fixture, enforce=enforce, no_guardian=no_guardian
+            Path(pipeline_dir),
+            fixture_id=fixture,
+            input=input,
+            enforce=enforce,
+            no_guardian=no_guardian,
         )
     except Exception as e:
         LOGGER.error(str(e))
