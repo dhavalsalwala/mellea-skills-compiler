@@ -28,6 +28,10 @@ from mellea_skills_compiler.certification.classification import (
     classify_governance_requirements,
 )
 from mellea_skills_compiler.certification.data import get_data_path
+from mellea_skills_compiler.certification.input_resolver import (
+    InputResolutionError,
+    resolve_input,
+)
 from mellea_skills_compiler.certification.policy import (
     generate_policy_manifest,
     generate_policy_markdown,
@@ -78,23 +82,7 @@ def _run_single_fixture(pipeline_fn: Callable, fixture: Fixture):
         LOGGER.error(error)
         return FixtureResult.failed(content=fixture, output=error)
 
-    return FixtureResult.success(
-        content=fixture,
-        output=output,
-    )
-
-
-def _get_fixture(fixture_id: str, fixtures: List[Fixture]):
-    # Get the desired fixture
-    if fixture_id is None:
-        return fixtures[0]
-    else:
-        for f in fixtures:
-            if fixture_id == f.id:
-                return f
-
-        available = [f.id for f in fixtures]
-        raise ValueError(f"Unknown fixture '{fixture_id}'. Available: {available}")
+    return FixtureResult.success(content=fixture, output=output)
 
 
 def run_pipeline(
@@ -174,8 +162,13 @@ def run_pipeline(
         # Load fixtures from the pipeline directory
         fixtures: List[Fixture] = load_fixtures(pipeline_dir)
 
-        # Get the desired fixture
-        fixture: Fixture = _get_fixture(fixture_id, fixtures)
+        # Resolve fixture from possible sources
+        fixture: Fixture = resolve_input(
+            pipeline_fn=pipeline_fn,
+            fixture_id=fixture_id,
+            input=input,
+            fixtures=fixtures,
+        )
 
         # run given fixture
         fixture_result: FixtureResult = _run_single_fixture(pipeline_fn, fixture)
@@ -187,7 +180,7 @@ def run_pipeline(
         LOGGER.error(f"Pipeline run failed: {str(e)}")
         return RunResult(
             success=False,
-            audit_dir=run_dir,
+            run_dir=run_dir,
             guardian_mode=guardian_mode,
             fixture_results=None,
             guardian_verdicts=guardian_plugin.summary() if guardian_plugin else None,
@@ -200,7 +193,7 @@ def run_pipeline(
 
     return RunResult(
         success=True,
-        audit_dir=run_dir,
+        run_dir=run_dir,
         guardian_mode=guardian_mode,
         fixture_results=[fixture_result],
         guardian_verdicts=guardian_plugin.summary() if guardian_plugin else None,
@@ -209,7 +202,7 @@ def run_pipeline(
 
 def full_pipeline(
     pipeline_dir: Path,
-    fixture_id: Optional[str] = None,
+    n_fixtures: int = 3,
     enforce: bool = False,
     model: Optional[str] = None,
     guardian_model: Optional[str] = None,
@@ -219,7 +212,7 @@ def full_pipeline(
 
     Args:
         pipeline_dir (Path): Compiled Mellea skill pipeline directory.
-        fixture_id (Optional[str], optional): Specify a fixture to run with the certification process. Defaults to None.
+        n_fixtures (int): Specify a fixture to run with the certification process. Defaults to None.
         enforce (bool, optional): Run pipeline in enforce mode (block on risk detection). Defaults to False.
         model (Optional[str], optional): Model to use for Risk and Action Identification. The `inference_engine` param must support the model. If set to None, the default model for the inference engine will be used.
         guardian_model (Optional[str], optional): Model to use for Risk Assessment. The `inference_engine` param must support the model. If set to None, the default guardian model for the inference engine will be used.
@@ -241,9 +234,6 @@ def full_pipeline(
 
     # Load fixtures from the pipeline directory
     fixtures = load_fixtures(pipeline_dir)
-
-    # Get the desired fixture
-    # fixture = _get_fixture(fixture_id, fixtures)
 
     # Get guardian mode - AUDIT or ENFORCE
     guardian_mode = GuardianMode("enforce" if enforce else "audit")
@@ -331,18 +321,23 @@ def full_pipeline(
     audit_plugin.register()
 
     # ── Step 4: Run the decomposed pipeline ───────────────────────────
+
+    # Get random `n_fixtures` fixtures to evaluate
+    sample_fixtures = (
+        random.sample(fixtures, n_fixtures) if len(fixtures) >= 3 else fixtures
+    )
+
     print()
     LOGGER.info("Running decomposed pipeline from %s...", pipeline_dir.name)
     LOGGER.info("  - Fixtures identified:")
-    sample_fixtures = random.sample(fixtures, 3) if len(fixtures) >= 3 else fixtures
     for fixture in sample_fixtures:
         LOGGER.info(f"      - {fixture.id}")
     LOGGER.info(f"  - Guardian checks [{guardian_mode}] every generation (pre + post).")
     LOGGER.info("  - Audit Trail checks every end points (pre + post).")
 
+    # run input fixtures
     fixture_results: List[FixtureResult] = []
     try:
-        # run fixtures
         with ThreadPoolExecutor() as executor:
 
             # Submit all fixtures
@@ -357,30 +352,34 @@ def full_pipeline(
                 fixture_result: FixtureResult = future.result(timeout=300)
                 fixture_results.append(fixture_result)
 
-        LOGGER.info(f"✓ Executed {len(sample_fixtures)} fixture(s)")
-
-        # ── Fixture Execution Summary ──────────────────────────────
-        LOGGER.info("")
-        LOGGER.info("=" * 70)
-        LOGGER.info("Fixture Execution Summary")
-        LOGGER.info("=" * 70)
-        LOGGER.info("Total: %d", len(sample_fixtures))
-        LOGGER.info(
-            "Passed: %d", len([f for f in fixture_results if f.status == "success"])
-        )
-        LOGGER.info(
-            "Blocked (Risk detected): %d",
-            len([f for f in fixture_results if f.status == "blocked"]),
-        )
-        LOGGER.info(
-            "Failed: %d", len([f for f in fixture_results if f.status == "failed"])
-        )
-
+            LOGGER.info(f"✓ Executed {len(sample_fixtures)} fixture(s)")
     except Exception as e:
         raise Exception(f"✗ Fixtures execution failed with error: {str(e)}")
     finally:
         guardian_plugin.deregister()
         audit_plugin.deregister()
+
+    # Write fixture results if available
+    if fixture_results:
+        with open(
+            output_dir / "fixture_results.json", "w", encoding="utf-8"
+        ) as results_file:
+            json.dump(fixture_results, results_file, indent=4, default=str)
+
+    # ── Fixture Execution Summary ──────────────────────────────
+    LOGGER.info("")
+    LOGGER.info("=" * 70)
+    LOGGER.info("Fixture Execution Summary")
+    LOGGER.info("=" * 70)
+    LOGGER.info("Total: %d", len(fixture_results))
+    LOGGER.info(
+        "Passed: %d", len([f for f in fixture_results if f.status == "success"])
+    )
+    LOGGER.info(
+        "Blocked (Risk detected): %d",
+        len([f for f in fixture_results if f.status == "blocked"]),
+    )
+    LOGGER.info("Failed: %d", len([f for f in fixture_results if f.status == "failed"]))
 
     # ── Step 5: Guardian verdict summary ──────────────────────────────
     LOGGER.info("")
@@ -489,11 +488,10 @@ def full_pipeline(
     ):
         LOGGER.info("STATUS: ALL CHECKS PASSED")
 
-    LOGGER.info("")
     # Return RunResult with the summary of the run
     return RunResult(
         success=True,
-        audit_dir=output_dir,
+        run_dir=output_dir,
         guardian_mode=guardian_mode,
         fixture_results=fixture_results,
         guardian_verdicts=verdict_summary,
