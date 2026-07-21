@@ -8,10 +8,8 @@ from typing import List, Optional
 
 from mellea_skills_compiler.enums import (
     GovernanceTaxonomy,
-    InferenceEngineType,
     NexusRiskSource,
 )
-from mellea_skills_compiler.inference import InferenceService
 from mellea_skills_compiler.models import GovernanceAction, NexusRisk, PolicyManifest
 from mellea_skills_compiler.toolkit.logging import configure_logger
 
@@ -40,8 +38,7 @@ def _get_fail_safe_risks():
 def generate_policy_manifest(
     use_case: str,
     nexus,
-    model: Optional[str] = None,
-    inference_engine: InferenceEngineType = InferenceEngineType.OLLAMA,
+    inference_engine,
     governance_taxonomies: Optional[List[str]] = None,
 ) -> PolicyManifest:
     """Identify applicable risks and governance actions to produce a multi-taxonomy policy manifest.
@@ -49,8 +46,7 @@ def generate_policy_manifest(
     Args:
         use_case (str): Natural language description of the agent's purpose.
         nexus (AIAtlasNexus): AI Atlas Nexus instance.
-        model (Optional[str], optional): Model to use for Risk and Action Identification. The `inference_engine` param must support the model. If set to None, the default model for the inference engine will be used.
-        inference_engine (InferenceEngineType, optional): Service to use for LLM inference. Defaults to InferenceEngineType.OLLAMA.
+        inference_engine (InferenceEngine): Service to use for LLM inference. Defaults to InferenceEngineType.OLLAMA.
         governance_taxonomies: List of taxonomy IDs for governance actions.
     Returns:
         PolicyManifest with Guardian risks and governance actions.
@@ -59,14 +55,9 @@ def generate_policy_manifest(
     if not governance_taxonomies:
         governance_taxonomies = GovernanceTaxonomy.list()
 
-    # Create Inference engine instance
-    risk_inference_engine = InferenceService(inference_engine).risk(
-        model, parameters={"temperature": 0}
-    )
-
     risk_lists = nexus.identify_risks_and_actions_from_usecases(
         [use_case],
-        risk_inference_engine,
+        inference_engine,
         taxonomy=governance_taxonomies,
         zero_shot_only=True,
     )
@@ -144,7 +135,7 @@ def generate_policy_manifest(
         additional_risks=additional_risks,
         governance_actions=governance_actions,
         governance_taxonomies=governance_taxonomies,
-        model=risk_inference_engine.model_name_or_path,
+        model=inference_engine.model_name_or_path,
     )
 
 

@@ -57,7 +57,11 @@ class AuditTrailPlugin(
         ] = None,
     ):
         self.guardian_plugin = guardian_plugin
-        self.policy_id = f"nexus-{guardian_plugin.taxonomy}" if guardian_plugin else ""
+        self.policy_id = (
+            f"nexus-{list(set([risk.taxonomy for risk in guardian_plugin.risks]))}"
+            if guardian_plugin and guardian_plugin.risks
+            else ""
+        )
         self._entries: list[dict] = []
 
         # audit log

@@ -33,14 +33,15 @@ class TestFixture:
         assert fixture.description == "Test description"
 
     def test_fixture_dict_method(self):
-        """Test Fixture.dict() method returns proper dict."""
+        """Test Fixture dict conversion returns proper dict."""
         fixture = Fixture(
             id="test-fixture",
             context={"param1": "value1", "param2": 123},
             description="Test",
         )
 
-        result = fixture.dict()
+        from dataclasses import asdict
+        result = asdict(fixture)
 
         assert isinstance(result, dict)
         assert result["id"] == "test-fixture"
@@ -54,16 +55,18 @@ class TestParseStructuredInput:
     def test_parse_valid_json_object(self):
         """Test parsing valid JSON object."""
         content = '{"key": "value", "number": 42}'
-        result = _parse_structured_input(content)
+        result, format_type = _parse_structured_input(content)
 
         assert result == {"key": "value", "number": 42}
+        assert format_type == "json_input"
 
     def test_parse_json_with_whitespace(self):
         """Test parsing JSON with leading/trailing whitespace."""
         content = '  {"key": "value"}  '
-        result = _parse_structured_input(content)
+        result, format_type = _parse_structured_input(content)
 
         assert result == {"key": "value"}
+        assert format_type == "json_input"
 
     def test_parse_json_array_fails(self):
         """Test that JSON array raises error."""
@@ -92,9 +95,10 @@ number: 42
 nested:
   inner: data
 """
-        result = _parse_structured_input(content)
+        result, format_type = _parse_structured_input(content)
 
         assert result == {"key": "value", "number": 42, "nested": {"inner": "data"}}
+        assert format_type == "yaml_input"
 
     def test_parse_yaml_with_string_keys(self):
         """Test parsing YAML with all string keys."""
@@ -102,9 +106,10 @@ nested:
 param1: value1
 param2: value2
 """
-        result = _parse_structured_input(content)
+        result, format_type = _parse_structured_input(content)
 
         assert result == {"param1": "value1", "param2": "value2"}
+        assert format_type == "yaml_input"
 
     def test_parse_yaml_scalar_fails(self):
         """Test that YAML scalar value raises error."""
@@ -141,10 +146,11 @@ param2: value2
     def test_json_takes_precedence_over_yaml(self):
         """Test that JSON parsing is attempted first."""
         content = '{"key": "value"}'
-        result = _parse_structured_input(content)
+        result, format_type = _parse_structured_input(content)
 
         # Should parse as JSON
         assert result == {"key": "value"}
+        assert format_type == "json_input"
 
     def test_parse_invalid_yaml_fails(self):
         """Test that invalid YAML raises error."""
@@ -207,16 +213,16 @@ class TestResolveInput:
         """Test resolving an existing fixture."""
         mock_fn = MagicMock()
         fixtures = [
-            {
-                "id": "fixture1",
-                "context": {"param1": "value1"},
-                "description": "Test fixture",
-            },
-            {
-                "id": "fixture2",
-                "context": {"param2": "value2"},
-                "description": "Test 2",
-            },
+            Fixture(
+                id="fixture1",
+                context={"param1": "value1"},
+                description="Test fixture",
+            ),
+            Fixture(
+                id="fixture2",
+                context={"param2": "value2"},
+                description="Test 2",
+            ),
         ]
 
         result = resolve_input(mock_fn, fixture_id="fixture1", fixtures=fixtures)
@@ -230,8 +236,8 @@ class TestResolveInput:
         """Test that nonexistent fixture raises error."""
         mock_fn = MagicMock()
         fixtures = [
-            {"id": "fixture1", "context": {}, "description": "Test"},
-            {"id": "fixture2", "context": {}, "description": "Test 2"},
+            Fixture(id="fixture1", context={}, description="Test"),
+            Fixture(id="fixture2", context={}, description="Test 2"),
         ]
 
         with pytest.raises(InputResolutionError) as exc_info:
@@ -251,7 +257,7 @@ class TestResolveInput:
 
         result = resolve_input(mock_pipeline_fn, input=input_str, fixtures=[])
 
-        assert result.id == "User_Input"
+        assert result.id == "json_input"
         assert result.context == {"param1": "value1", "param2": 42}
         assert result.description == "JSON/YAML Input"
 
@@ -266,7 +272,7 @@ class TestResolveInput:
 
         result = resolve_input(mock_pipeline_fn, input=input_str, fixtures=[])
 
-        assert result.id == "User_Input"
+        assert result.id == "json_input"
         assert result.context == {"param1": "value1", "param2": 42}
         assert result.description == "JSON/YAML Input"
 
@@ -280,7 +286,7 @@ class TestResolveInput:
 
         result = resolve_input(mock_pipeline_fn, input=input_str, fixtures=[])
 
-        assert result.id == "User_Input"
+        assert result.id == "raw_input"
         assert result.context == {"text": "raw string input"}
         assert result.description == "Raw Input"
 
@@ -316,7 +322,7 @@ class TestResolveInput:
                 mock_pipeline_fn, input=f"file://{file_path}", fixtures=[]
             )
 
-            assert result.id == "User_Input"
+            assert result.id == "json_input_file"
             assert result.context == {"param1": "value from file"}
             assert result.description == "JSON/YAML Input"
         finally:
@@ -347,7 +353,7 @@ class TestResolveInput:
 
         result = resolve_input(mock_pipeline_fn, input="-", fixtures=[])
 
-        assert result.id == "User_Input"
+        assert result.id == "user_input"
         assert result.context == {"param1": "value1", "param2": "42"}
         assert result.description == "Prompt Input"
         assert mock_prompt_ask.call_count == 2
@@ -363,7 +369,7 @@ class TestResolveInput:
 
         result = resolve_input(mock_pipeline_fn, input=input_str, fixtures=[])
 
-        assert result.id == "User_Input"
+        assert result.id == "raw_input"
         assert result.context == {"text": "just plain text"}
         assert result.description == "Raw Input"
 

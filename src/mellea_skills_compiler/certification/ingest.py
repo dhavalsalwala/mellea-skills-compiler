@@ -22,6 +22,7 @@ from mellea_skills_compiler.certification.classification import (
 from mellea_skills_compiler.certification.data import get_data_path
 from mellea_skills_compiler.certification.report import generate_certification_report
 from mellea_skills_compiler.enums import InferenceEngineType
+from mellea_skills_compiler.inference import InferenceService
 from mellea_skills_compiler.toolkit.file_utils import parse_spec_file
 from mellea_skills_compiler.toolkit.logging import configure_logger
 
@@ -32,15 +33,15 @@ log = configure_logger()
 def ingest_one(
     spec_path: Path,
     dry_run: bool = False,
-    model: Optional[str] = None,
-    inference_engine: InferenceEngineType = InferenceEngineType.OLLAMA,
+    risk_model: Optional[str] = None,
+    inference_engine_type: InferenceEngineType = InferenceEngineType.OLLAMA,
 ):
     """Risk Analysis and Policy Generation Pipeline for Mellea skill
 
     Args:
         skill_name (str): Mellea Skill spec path.
         dry_run (bool, optional): Preview without making LLM calls. Defaults to False.
-        model (Optional[str], optional): Model to use for Risk and Action Identification. The `inference_engine` param must support the model. If set to None, the default model for the inference engine will be used.
+        risk_model (Optional[str], optional): Model to use for Risk and Action Identification. The `inference_engine` param must support the model. If set to None, the default model for the inference engine will be used.
         inference_engine (InferenceEngineType, optional): Service to use for LLM inference. Defaults to InferenceEngineType.OLLAMA.
     """
 
@@ -108,7 +109,9 @@ def ingest_one(
     audit_dir.mkdir(exist_ok=True)
 
     # Genereate policy manifest
-    manifest = policy.generate_policy_manifest(use_case, nexus, model, inference_engine)
+    manifest = policy.generate_policy_manifest(
+        use_case, nexus, InferenceService.risk_engine(risk_model, inference_engine_type)
+    )
     manifest_path = audit_dir / "policy_manifest.json"
     manifest.to_json(manifest_path)
 

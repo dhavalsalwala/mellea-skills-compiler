@@ -75,3 +75,15 @@ class GuardianScore(StrEnum):
     NO = "No"
     FAILED = "Failed"
     ERROR = "Error"
+
+
+class HookStage(StrEnum):
+
+    PRE = "pre"
+    POST = "post"
+    TOOLS_PRE = "tools_pre"
+    TOOLS_POST = "tools_post"
+
+    @classmethod
+    def list(cls):
+        return list(map(lambda c: c.value, cls))

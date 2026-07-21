@@ -28,31 +28,26 @@ def guardian_plugin():
     from mellea_skills_compiler.enums import GovernanceTaxonomy
     from mellea_skills_compiler.models import NexusRisk
 
-    return GuardianAuditPlugin(
-        manifest=PolicyManifest(
-            taxonomy="granite-guardian",
-            risks=[
-                NexusRisk(
-                    name="jailbreak",
-                    description="Jailbreak attempts",
-                    guardian_prompt="jailbreak",
-                    source="ai-atlas-nexus",
-                    is_native=True,
-                    taxonomy=GovernanceTaxonomy.IBM_GRANITE_GUARDIAN,
-                ),
-                NexusRisk(
-                    name="harm",
-                    description="Harmful content",
-                    guardian_prompt="harm",
-                    source="ai-atlas-nexus",
-                    is_native=True,
-                    taxonomy=GovernanceTaxonomy.IBM_GRANITE_GUARDIAN,
-                ),
-            ],
-            additional_risks=None,
-            use_case="test_use_case",
-        )
-    )
+    risks = [
+        NexusRisk(
+            name="jailbreak",
+            description="Jailbreak attempts",
+            guardian_prompt="jailbreak",
+            source="ai-atlas-nexus",
+            is_native=True,
+            taxonomy=GovernanceTaxonomy.IBM_GRANITE_GUARDIAN,
+        ),
+        NexusRisk(
+            name="harm",
+            description="Harmful content",
+            guardian_prompt="harm",
+            source="ai-atlas-nexus",
+            is_native=True,
+            taxonomy=GovernanceTaxonomy.IBM_GRANITE_GUARDIAN,
+        ),
+    ]
+
+    return GuardianAuditPlugin(risks=risks)
 
 
 @pytest.fixture
@@ -71,7 +66,7 @@ class TestAuditTrailPluginInit:
         """Test plugin initialization with default values."""
 
         assert audit_plugin.log_path == temp_audit_file
-        assert audit_plugin.policy_id == "nexus-granite-guardian"
+        assert audit_plugin.policy_id == "nexus-['ibm-granite-guardian']"
         assert audit_plugin.guardian_plugin is guardian_plugin
         assert audit_plugin._entries == []
 
@@ -116,7 +111,7 @@ class TestAuditTrailWrite:
 
         with open(temp_audit_file) as f:
             written_entry = json.loads(f.read())
-            assert written_entry["policy_id"] == "nexus-granite-guardian"
+            assert written_entry["policy_id"] == "nexus-['ibm-granite-guardian']"
 
     def test_write_multiple_entries(self, audit_plugin, temp_audit_file):
         """Test writing multiple entries."""
@@ -164,12 +159,13 @@ class TestAuditTrailHooks:
 
     def test_log_post_call_without_risk(self, audit_plugin):
         """Test generation_post_call hook without risk detection."""
+        from mellea_skills_compiler.enums import HookStage
         from mellea_skills_compiler.models import GuardianVerdict
 
         # Add verdicts to guardian plugin
         audit_plugin.guardian_plugin.all_verdicts = [
-            GuardianVerdict(risk="jailbreak", label="No", raw_output="<score>no</score>"),
-            GuardianVerdict(risk="harm", label="No", raw_output="<score>no</score>"),
+            GuardianVerdict(risk="jailbreak", label="No", raw_output="<score>no</score>", hook_stage=HookStage.POST),
+            GuardianVerdict(risk="harm", label="No", raw_output="<score>no</score>", hook_stage=HookStage.POST),
         ]
 
         payload = MagicMock()
@@ -191,12 +187,13 @@ class TestAuditTrailHooks:
 
     def test_log_post_call_with_risk(self, audit_plugin):
         """Test generation_post_call hook with risk detection."""
+        from mellea_skills_compiler.enums import HookStage
         from mellea_skills_compiler.models import GuardianVerdict
 
         # Add verdicts to guardian plugin with one risk detected
         audit_plugin.guardian_plugin.all_verdicts = [
-            GuardianVerdict(risk="jailbreak", label="Yes", raw_output="<score>yes</score>"),
-            GuardianVerdict(risk="harm", label="No", raw_output="<score>no</score>"),
+            GuardianVerdict(risk="jailbreak", label="Yes", raw_output="<score>yes</score>", hook_stage=HookStage.POST),
+            GuardianVerdict(risk="harm", label="No", raw_output="<score>no</score>", hook_stage=HookStage.POST),
         ]
 
         payload = MagicMock()
@@ -335,12 +332,13 @@ class TestAuditTrailSummary:
 
     def test_summary_with_entries(self, audit_plugin):
         """Test summary with multiple entries."""
+        from mellea_skills_compiler.enums import HookStage
         from mellea_skills_compiler.models import GuardianVerdict
 
         # Add verdicts to guardian plugin
         audit_plugin.guardian_plugin.all_verdicts = [
-            GuardianVerdict(risk="test", label="No", raw_output="<score>no</score>"),
-            GuardianVerdict(risk="test2", label="No", raw_output="<score>no</score>"),
+            GuardianVerdict(risk="test", label="No", raw_output="<score>no</score>", hook_stage=HookStage.POST),
+            GuardianVerdict(risk="test2", label="No", raw_output="<score>no</score>", hook_stage=HookStage.POST),
         ]
 
         # Add generation entries
@@ -375,11 +373,12 @@ class TestAuditTrailSummary:
 
     def test_summary_with_risks(self, audit_plugin):
         """Test summary counts risk detections."""
+        from mellea_skills_compiler.enums import HookStage
         from mellea_skills_compiler.models import GuardianVerdict
 
         # Add verdict with risk detected to guardian plugin
         audit_plugin.guardian_plugin.all_verdicts = [
-            GuardianVerdict(risk="test", label="Yes", raw_output="<score>yes</score>"),
+            GuardianVerdict(risk="test", label="Yes", raw_output="<score>yes</score>", hook_stage=HookStage.POST),
         ]
 
         # Add generation with risk

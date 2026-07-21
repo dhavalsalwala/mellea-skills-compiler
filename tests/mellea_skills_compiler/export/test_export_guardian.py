@@ -373,11 +373,13 @@ def test_guardian_enforce_plugin_blocks_on_risk():
     """GuardianEnforcePlugin raises PluginViolationError via Mellea's plugin manager when a risk is flagged."""
     import asyncio
     from unittest.mock import MagicMock
-    from mellea.plugins import PluginViolationError, register, unregister, HookType
+
+    from mellea.plugins import HookType, PluginViolationError, register, unregister
     from mellea.plugins.manager import invoke_hook
+
+    from mellea_skills_compiler.enums import GuardianScore, HookStage
     from mellea_skills_compiler.models import GuardianVerdict, NexusRisk, PolicyManifest
     from mellea_skills_compiler.plugins.guardian import GuardianEnforcePlugin
-    from mellea_skills_compiler.enums import GuardianScore
 
     risk = NexusRisk(
         name="harm",
@@ -392,10 +394,10 @@ def test_guardian_enforce_plugin_blocks_on_risk():
         risks=[risk],
         additional_risks=[],
     )
-    plugin = GuardianEnforcePlugin(manifest)
+    plugin = GuardianEnforcePlugin(manifest.risks)
     plugin.register()
 
-    yes_verdict = GuardianVerdict(risk="harm", label=GuardianScore.YES, raw_output="<score>yes</score>")
+    yes_verdict = GuardianVerdict(risk="harm", label=GuardianScore.YES, raw_output="<score>yes</score>", hook_stage=HookStage.POST)
 
     payload = MagicMock()
     payload.model_output = MagicMock()

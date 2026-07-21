@@ -8,9 +8,8 @@ Implements Stage 1 of the deep-research recommendations:
 
 import inspect
 import json
-from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import yaml
 from rich.prompt import Prompt
@@ -40,7 +39,7 @@ def _parse_structured_input(content: str) -> Dict[str, Any]:
     try:
         parsed = json.loads(content)
         if isinstance(parsed, dict):
-            return parsed
+            return parsed, "json_input"
         raise InputResolutionError(
             f"Structured input must be a JSON object, got {type(parsed).__name__}"
         )
@@ -51,7 +50,7 @@ def _parse_structured_input(content: str) -> Dict[str, Any]:
     try:
         parsed = yaml.safe_load(content)
         if isinstance(parsed, dict):
-            return parsed
+            return parsed, "yaml_input"
         raise InputResolutionError(
             f"Structured input must be a YAML object, got {type(parsed).__name__}"
         )
@@ -72,7 +71,7 @@ def resolve_input(
     pipeline_fn: Callable,
     fixture_id: Optional[str] = None,
     input: Optional[str] = None,
-    fixtures: Optional[list] = None,
+    fixtures: Optional[List[Fixture]] = None,
 ) -> Fixture:
     """Resolve input from multiple possible sources.
 
@@ -104,10 +103,10 @@ def resolve_input(
     # Resolve fixture
     if fixture_id is not None:
         for f in fixtures:
-            if f["id"] == fixture_id:
-                return Fixture(**f)
+            if f.id == fixture_id:
+                return f
         raise InputResolutionError(
-            f"Unknown fixture '{fixture_id}'. Available: {', '.join([f["id"] for f in fixtures])}"
+            f"Unknown fixture '{fixture_id}'. Available: {', '.join([f.id for f in fixtures])}"
         )
 
     # Resolve --input (with path/- support)
@@ -125,10 +124,12 @@ def resolve_input(
             for param in params:
                 params_data[param.name] = Prompt.ask(f"[blue]Enter[/] {param.name}")
             return Fixture(
-                id="User_Input", context=params_data, description="Prompt Input"
+                id="user_input", context=params_data, description="Prompt Input"
             )
         else:
+            file_input = False
             if input.startswith("file://"):
+                file_input = True
                 # Read from file
                 path = Path(input.split("file://")[1])
                 if not path.exists():
@@ -137,10 +138,12 @@ def resolve_input(
 
             if _should_parse_as_structured(input):
                 try:
-                    parsed = _parse_structured_input(input)
+                    parsed, input_type = _parse_structured_input(input)
                     LOGGER.info("Interpreting input as structured (JSON/YAML object)")
                     return Fixture(
-                        id="User_Input", context=parsed, description="JSON/YAML Input"
+                        id=input_type if not file_input else input_type + "_file",
+                        context=parsed,
+                        description="JSON/YAML Input",
                     )
                 except InputResolutionError as e:
                     # Fall through to raw string handling
@@ -154,7 +157,7 @@ def resolve_input(
                 param_name = params[0].name
                 LOGGER.info(f"Binding raw string to single parameter '{param_name}'")
                 return Fixture(
-                    id="User_Input",
+                    id="raw_input",
                     context={param_name: input},
                     description="Raw Input",
                 )

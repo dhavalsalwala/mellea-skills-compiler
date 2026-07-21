@@ -23,9 +23,8 @@ Usage (enforce mode — blocks on risk):
 from __future__ import annotations
 
 import json
-import urllib.error
 from copy import deepcopy
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from mellea.core.requirement import Requirement
 from mellea.plugins import HookType, Plugin, PluginMode, hook
@@ -37,6 +36,7 @@ from rich.console import Console
 from mellea_skills_compiler.enums import (
     GuardianMode,
     GuardianScore,
+    HookStage,
     InferenceEngineType,
 )
 from mellea_skills_compiler.inference import InferenceService
@@ -63,11 +63,11 @@ def _parse_guardian_score(text: str) -> str:
 
 
 def _call_guardian(
+    hook_stage: HookStage,
     risks: List[NexusRisk],
     input_text: str,
+    inference_engine,
     assistant_text: Optional[str] = None,
-    guardian_model: Optional[str] = None,
-    inference_engine: Optional[str] = None,
 ) -> List[GuardianVerdict]:
     """Synchronous call to Guardian.
 
@@ -107,16 +107,10 @@ def _call_guardian(
         all_messages.append(messages)
 
     try:
-        # Load inference model
-        guardian_model = InferenceService(inference_engine).guardian(
-            guardian_model,
-            parameters={"temperature": 0, "num_ctx": 1024, "think": False},
-        )
-
         # Batch inferencing guardian risks
         raw_predictions = [
             raw_prediction.prediction
-            for raw_prediction in guardian_model.chat(all_messages, verbose=False)
+            for raw_prediction in inference_engine.chat(all_messages, verbose=False)
         ]
 
     except Exception as e:
@@ -149,7 +143,7 @@ def _call_guardian(
                 )
 
                 try:
-                    raw_prediction = guardian_model.chat([messages], verbose=False)[
+                    raw_prediction = inference_engine.chat([messages], verbose=False)[
                         0
                     ].prediction
                     label = _parse_guardian_score(raw_prediction)
@@ -164,14 +158,19 @@ def _call_guardian(
                 attempt += 1
 
         verdicts.append(
-            GuardianVerdict(risk=risk_name, label=label, raw_output=raw_prediction)
+            GuardianVerdict(
+                risk=risk_name,
+                label=label,
+                raw_output=raw_prediction,
+                hook_stage=hook_stage,
+            )
         )
 
     return verdicts
 
 
 def _run_guardian_post_checks(
-    payload: Any, risks: List[NexusRisk], guardian_model: str, inference_engine: str
+    payload: Any, risks: List[NexusRisk], inference_engine: str
 ) -> List[GuardianVerdict]:
     """Shared logic: run Guardian checks and return (verdicts, flagged_labels)."""
     model_output = payload.model_output
@@ -199,11 +198,7 @@ def _run_guardian_post_checks(
         input_text = str(prompt) if prompt else ""
 
     verdicts: List[GuardianVerdict] = _call_guardian(
-        risks,
-        input_text,
-        assistant_text,
-        guardian_model,
-        inference_engine,
+        HookStage.POST, risks, input_text, inference_engine, assistant_text
     )
     for verdict in verdicts:
         console.print(
@@ -213,7 +208,7 @@ def _run_guardian_post_checks(
 
 
 def _run_guardian_pre_checks(
-    payload: Any, risks: List[NexusRisk], guardian_model: str, inference_engine: str
+    payload: Any, risks: List[NexusRisk], inference_engine: str
 ) -> List[GuardianVerdict]:
     """Pre-generation check: assess the input prompt before LLM generation.
 
@@ -254,11 +249,7 @@ def _run_guardian_pre_checks(
 
     assistant_text = None
     verdicts: List[GuardianVerdict] = _call_guardian(
-        risks,
-        input_text,
-        assistant_text,
-        guardian_model,
-        inference_engine,
+        HookStage.PRE, risks, input_text, inference_engine, assistant_text
     )
     for verdict in verdicts:
         console.print(
@@ -269,7 +260,8 @@ def _run_guardian_pre_checks(
 
 class GuardianPluginFactory:
 
-    def create(guardian_mode: GuardianMode, *args, **kwargs):
+    @staticmethod
+    def create(guardian_mode: GuardianMode, *args, **kwargs) -> GuardianPlugin:
         guardian_plugin_class = (
             GuardianEnforcePlugin
             if guardian_mode == GuardianMode.ENFORCE
@@ -281,25 +273,17 @@ class GuardianPluginFactory:
 class GuardianPlugin(BasePlugin):
     """Shared state and factory methods for Guardian plugins."""
 
-    def __init__(
-        self,
-        manifest: PolicyManifest,
-        guardian_model: Optional[str] = None,
-        inference_engine: Optional[InferenceEngineType] = None,
-    ):
+    def __init__(self, risks: List[NexusRisk], inference_engine):
         """Create plugin from a Nexus PolicyManifest.
 
         Args:
             manifest: A PolicyManifest with guardian_risks and risk_names.
             enforce: If True, returns a GuardianEnforcePlugin (SEQUENTIAL mode)
                 that blocks generation when risks are detected.
-            guardian_model: The guardian model
             inference_engine: The inference engine, defaults to Ollama
         """
-        self.risks = manifest.risks
-        self.taxonomy = manifest.taxonomy
+        self.risks = risks
         self.all_verdicts: List[GuardianVerdict] = []
-        self.guardian_model = guardian_model
         self.inference_engine = inference_engine
 
     def register(self) -> None:
@@ -310,7 +294,7 @@ class GuardianPlugin(BasePlugin):
         )
         super().register()
 
-    def summary(self) -> dict:
+    def summary(self) -> Dict[str, List[GuardianVerdict]]:
         return {
             "all_verdicts": self.all_verdicts,
             "flagged_verdicts": [
@@ -343,26 +327,21 @@ class GuardianAuditPlugin(
 
     def __init__(
         self,
-        manifest: PolicyManifest,
-        guardian_model: Optional[str] = None,
+        risks: List[NexusRisk],
         inference_engine: Optional[InferenceEngineType] = None,
     ):
-        super().__init__(manifest, guardian_model, inference_engine)
+        super().__init__(risks, inference_engine)
 
     @hook(HookType.GENERATION_PRE_CALL, mode=PluginMode.AUDIT)
     async def check_input(self, payload: Any, ctx: Any) -> None:
         """Pre-generation: assess input prompt for risks (observe-only)."""
-        verdicts = _run_guardian_pre_checks(
-            payload, self.risks, self.guardian_model, self.inference_engine
-        )
+        verdicts = _run_guardian_pre_checks(payload, self.risks, self.inference_engine)
         self.all_verdicts.extend(verdicts)
 
     @hook(HookType.GENERATION_POST_CALL, mode=PluginMode.AUDIT)
     async def check_output(self, payload: Any, ctx: Any) -> None:
         """Post-generation: assess LLM output for risks (observe-only)."""
-        verdicts = _run_guardian_post_checks(
-            payload, self.risks, self.guardian_model, self.inference_engine
-        )
+        verdicts = _run_guardian_post_checks(payload, self.risks, self.inference_engine)
         self.all_verdicts.extend(verdicts)
 
     @hook(HookType.TOOL_PRE_INVOKE, mode=PluginMode.AUDIT)
@@ -404,10 +383,10 @@ class GuardianAuditPlugin(
 
             # Run Guardian checks on the tool output (treat as assistant text)
             verdicts: list[GuardianVerdict] = _call_guardian(
+                HookStage.TOOLS_POST,
                 tool_risks,
                 user_text=f"Tool {tool_name} was called",
                 assistant_text=tool_output[:2000],
-                guardian_model=self.guardian_model,
                 inference_engine=self.inference_engine,
             )
             self.all_verdicts.extend(verdicts)
@@ -436,17 +415,16 @@ class GuardianEnforcePlugin(
 
     def __init__(
         self,
-        manifest: PolicyManifest,
-        guardian_model: Optional[str] = None,
+        risks: List[NexusRisk],
         inference_engine: Optional[InferenceEngineType] = None,
     ):
-        super().__init__(manifest, guardian_model, inference_engine)
+        super().__init__(risks, inference_engine)
 
     @hook(HookType.GENERATION_PRE_CALL, mode=PluginMode.SEQUENTIAL)
     async def enforce_input(self, payload: Any, ctx: Any) -> Any:
         """Pre-generation: block if input prompt has risks."""
         verdicts: List[GuardianVerdict] = _run_guardian_pre_checks(
-            payload, self.risks, self.guardian_model, self.inference_engine
+            payload, self.risks, self.inference_engine
         )
         self.all_verdicts.extend(verdicts)
 
@@ -463,9 +441,9 @@ class GuardianEnforcePlugin(
             )
             console.print()
             return block(
-                reason=f"Guardian input risks assessment failed for {failed}",
+                reason=f"Input risks assessment failed for {failed}",
                 code="guardian_input_risk_failure",
-                details={"failed_risks": failed, "stage": "pre_generation"},
+                details={"failed_risks": failed, "stage": HookStage.PRE},
             )
         elif flagged:
             console.print()
@@ -474,18 +452,16 @@ class GuardianEnforcePlugin(
             )
             console.print()
             return block(
-                reason=f"Guardian detected input risks for {flagged}",
+                reason=f"Input prompt triggered a Guardian risk detection in ENFORCE mode for {flagged}",
                 code="guardian_input_risk_detected",
-                details={"flagged_risks": flagged, "stage": "pre_generation"},
+                details={"flagged_risks": flagged, "stage": HookStage.PRE},
             )
         return None
 
     @hook(HookType.GENERATION_POST_CALL, mode=PluginMode.SEQUENTIAL)
     async def enforce_output(self, payload: Any, ctx: Any) -> Any:
         """Post-generation: block if LLM output has risks."""
-        verdicts = _run_guardian_post_checks(
-            payload, self.risks, self.guardian_model, self.inference_engine
-        )
+        verdicts = _run_guardian_post_checks(payload, self.risks, self.inference_engine)
         self.all_verdicts.extend(verdicts)
 
         flagged = [v.risk for v in verdicts if v.label == GuardianScore.YES]
@@ -501,7 +477,7 @@ class GuardianEnforcePlugin(
             )
             console.print()
             return block(
-                reason=f"Guardian output risks assessment failed for {failed}",
+                reason=f"Output risks assessment failed for {failed}",
                 code="guardian_output_risk_failure",
                 details={"failed_risks": failed, "stage": "post_generation"},
             )
@@ -512,9 +488,9 @@ class GuardianEnforcePlugin(
             )
             console.print()
             return block(
-                reason=f"Guardian detected output risks for {flagged}",
+                reason=f"An output generation triggered a Guardian risk detection in ENFORCE mode for {flagged}",
                 code="guardian_output_risk_detected",
-                details={"flagged_risks": flagged, "stage": "post_generation"},
+                details={"flagged_risks": flagged, "stage": HookStage.POST},
             )
         return None
 
@@ -533,9 +509,9 @@ class GuardianEnforcePlugin(
 
         # Run Guardian checks on tool input
         verdicts: list[GuardianVerdict] = _call_guardian(
+            HookStage.TOOLS_PRE,
             tool_risks,
             input_text=f"Tool {tool_name} was called with arguments: {json.dumps(args, indent=2)}",
-            guardian_model=self.guardian_model,
             inference_engine=self.inference_engine,
         )
         self.all_verdicts.extend(verdicts)
@@ -552,12 +528,12 @@ class GuardianEnforcePlugin(
             )
             console.print()
             return block(
-                reason=f"Guardian tool input risks assessment failed for {failed}",
+                reason=f"Tool input risks assessment failed for {failed}",
                 code="guardian_tool_output_risk_failure",
                 details={
                     "failed_risks": failed,
                     "tool": tool_name,
-                    "stage": "pre_tool",
+                    "stage": HookStage.TOOLS_PRE,
                 },
             )
         elif flagged:
@@ -567,12 +543,12 @@ class GuardianEnforcePlugin(
             )
             console.print()
             return block(
-                reason=f"Guardian detected risks in {tool_name}: {flagged}",
+                reason=f"Guardian detected risks in Tool input - {tool_name}: {flagged}",
                 code="guardian_tool_input_risk_detected",
                 details={
                     "flagged_risks": flagged,
                     "tool": tool_name,
-                    "stage": "pre_tool",
+                    "stage": HookStage.TOOLS_PRE,
                 },
             )
         return None
@@ -595,10 +571,10 @@ class GuardianEnforcePlugin(
 
         # Run Guardian checks on tool output
         verdicts: list[GuardianVerdict] = _call_guardian(
+            HookStage.TOOLS_POST,
             tool_risks,
             input_text=f"Tool {tool_name} was called",
             assistant_text=tool_output[:2000],
-            guardian_model=self.guardian_model,
             inference_engine=self.inference_engine,
         )
         self.all_verdicts.extend(verdicts)
@@ -615,12 +591,12 @@ class GuardianEnforcePlugin(
             )
             console.print()
             return block(
-                reason=f"Guardian tool output risks assessment failed for {failed}",
+                reason=f"Tool output risks assessment failed for {failed}",
                 code="guardian_tool_output_risk_failure",
                 details={
                     "failed_risks": failed,
                     "tool": tool_name,
-                    "stage": "post_tool",
+                    "stage": HookStage.TOOLS_POST,
                 },
             )
         elif flagged:
@@ -630,12 +606,12 @@ class GuardianEnforcePlugin(
             )
             console.print()
             return block(
-                reason=f"Guardian detected risks in {tool_name}: {flagged}",
+                reason=f"Guardian detected risks in Tool output - {tool_name}: {flagged}",
                 code="guardian_tool_output_risk_detected",
                 details={
                     "flagged_risks": flagged,
                     "tool": tool_name,
-                    "stage": "post_tool",
+                    "stage": HookStage.TOOLS_POST,
                 },
             )
         return None

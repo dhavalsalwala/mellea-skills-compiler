@@ -1,12 +1,15 @@
 import json
-import logging
 from collections import Counter
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Union
 
-from mellea_skills_compiler.enums import CoverageLevel, GovernanceTaxonomy, GuardianMode
+from mellea.plugins import PluginViolationError
+from pydantic import TypeAdapter
+from pydantic.dataclasses import dataclass
+
+from mellea_skills_compiler.enums import CoverageLevel, GovernanceTaxonomy, HookStage
 from mellea_skills_compiler.toolkit.logging import configure_logger
 
 
@@ -44,7 +47,7 @@ class GovernanceAction:
     source: str  # e.g. "nist-ai-rmf", "credo-ucf"
     category: str = ""  # e.g. "Govern", "Map", "Measure", "Manage"
     via_risk: str = ""  # the risk that linked to this action
-    categorized_as: str | list[str] = ""
+    categorized_as: Optional[Union[str, List[str]]] = None
 
 
 @dataclass
@@ -146,6 +149,7 @@ class GuardianVerdict:
     risk: str
     label: str  # "Yes" (risk detected), "No" (safe), "Failed", "Error"
     raw_output: str
+    hook_stage: HookStage
     timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
@@ -155,73 +159,84 @@ class Fixture:
     context: Dict[str, Any]
     description: str
 
-    def dict(self):
-        return asdict(self)
-
 
 @dataclass
 class FixtureResult:
     status: Literal["success", "failed", "blocked"]
-    content: Fixture
-    output: Any
-
-    def dict(self):
-        return asdict(self)
+    fixture: Fixture
+    output: Optional[Any] = None
+    error_details: Optional[Dict[str, Any]] = None
 
     @classmethod
-    def success(cls, **kwargs):
-        return cls(status="success", **kwargs)
+    def success(cls, fixture: Fixture, output: Any):
+        return cls(status="success", fixture=fixture, output=output)
 
     @classmethod
-    def blocked(cls, **kwargs):
-        return cls(status="blocked", **kwargs)
+    def blocked(cls, fixture: Fixture, e: PluginViolationError):
+        LOGGER.warning(
+            f"Fixture[{fixture.id}] - Pipeline BLOCKED by Guardian enforcement. {e.reason}"
+        )
+        return cls(
+            status="blocked",
+            fixture=fixture,
+            error_details={
+                "hook_type": e.hook_type,
+                "code": e.code,
+                "reason": e.reason,
+                "plugin_name": e.plugin_name,
+            },
+        )
+
+    @classmethod
+    def failed(cls, fixture: Fixture, e: Exception):
+        LOGGER.error(f"Fixture[{fixture.id}] execution failed. {str(e)}")
+        return cls(
+            status="failed",
+            fixture=fixture,
+            error_details={
+                "type": type(e).__name__,
+                "message": str(e),
+            },
+        )
+
+
+@dataclass
+class RunResult:
+    status: Literal["success", "failed"]
+    input_parameters: Dict[str, Any]
+    run_dir: Optional[Path] = None
+    guardian_verdicts: Optional[Dict[str, List[GuardianVerdict]]] = None
+    artifact_paths: Optional[Dict[str, Path]] = field(default_factory=dict)
+    error_details: Optional[Dict[str, Any]] = None
+
+    def __post_init__(self):
+
+        # Collect artifact paths by traversing the run directory
+        if self.run_dir and self.run_dir.exists():
+            for file_path in self.run_dir.iterdir():
+                if file_path.is_file():
+                    # Use file stem (name without extension) as key
+                    self.artifact_paths[file_path.stem.replace("_", " ").title()] = (
+                        file_path
+                    )
+
+        # Write RunResult to the JSON file
+        run_result_path = self.run_dir / "run_result.json"
+        with open(run_result_path, "w", encoding="utf-8") as run_result_file:
+            json.dump(
+                TypeAdapter(RunResult).dump_python(self),
+                run_result_file,
+                indent=4,
+                default=str,
+            )
+
+        print()
+        LOGGER.info(f"Run result written to {run_result_path}")
 
     @classmethod
     def failed(cls, **kwargs):
         return cls(status="failed", **kwargs)
 
-
-@dataclass
-class RunResult:
-    success: bool
-    audit_dir: Optional[Path]
-    guardian_mode: GuardianMode
-    fixture_results: List[FixtureResult]
-    guardian_verdicts: Optional[Dict[str, List[GuardianVerdict]]] = None
-    error_message: Optional[str] = None
-
-    def dump(self):
-        return asdict(self)
-
-    def __post_init__(self):
-        # Write RunResult to the JSON file
-        run_result_path = self.audit_dir / "run_result.json"
-        with open(run_result_path, "w", encoding="utf-8") as run_result_file:
-            json.dump(
-                self.dump(), run_result_file, indent=4, sort_keys=True, default=str
-            )
-
-        LOGGER.info(f"Run Result written to {run_result_path}")
-
     @classmethod
-    def failed(
-        cls, audit_dir, guardian_mode, fixture_results, guardian_verdicts, error_message
-    ):
-        return cls(
-            success=False,
-            audit_dir=audit_dir,
-            guardian_mode=guardian_mode,
-            fixture_results=fixture_results,
-            guardian_verdicts=guardian_verdicts,
-            error_message=error_message,
-        )
-
-    @classmethod
-    def blocked(cls, audit_dir, fixture_results, violation):
-        return cls(
-            success=False,
-            audit_dir=audit_dir,
-            fixture_results=fixture_results,
-            guardian_verdicts=[violation],
-            error_message=violation.get("reason"),
-        )
+    def success(cls, **kwargs):
+        return cls(status="success", **kwargs)
