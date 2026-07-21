@@ -205,8 +205,8 @@ class RunResult:
     status: Literal["success", "failed"]
     input_parameters: Dict[str, Any]
     run_dir: Optional[Path] = None
-    guardian_verdicts: Optional[Dict[str, List[GuardianVerdict]]] = None
     artifact_paths: Optional[Dict[str, Path]] = field(default_factory=dict)
+    guardian_verdicts: Optional[Dict[str, List[GuardianVerdict]]] = None
     error_details: Optional[Dict[str, Any]] = None
 
     def __post_init__(self):

@@ -113,9 +113,9 @@ def run_pipeline(
     # Gather input parameters for audit purpose
     input_parameters = locals().copy()
 
-    run_dir = None
-    guardian_plugin = None
-    audit_plugin = None
+    run_dir: Path = None
+    guardian_plugin: GuardianPlugin = None
+    audit_plugin: AuditTrailPlugin = None
 
     try:
         # Verify skill pipeline directory exists
@@ -168,7 +168,7 @@ def run_pipeline(
                         InferenceService.guardian_engine(),
                     )
                     guardian_plugin.register()
-                    audit_plugin = AuditTrailPlugin(
+                    audit_plugin: AuditTrailPlugin = AuditTrailPlugin(
                         log_path=run_dir / "audit_trail.jsonl",
                         guardian_plugin=guardian_plugin,
                     )
@@ -249,9 +249,9 @@ def full_pipeline(
     # Gather input parameters for audit purpose
     input_parameters = locals().copy()
 
-    audit_dir = None
-    guardian_plugin = None
-    audit_plugin = None
+    audit_dir: Path = None
+    guardian_plugin: GuardianPlugin = None
+    audit_plugin: AuditTrailPlugin = None
 
     try:
         # Verify skill pipeline directory exists
@@ -266,6 +266,14 @@ def full_pipeline(
                 f"Skill pipeline directory not found: {pipeline_dir}"
             )
 
+        # Create the current audit directory
+        audit_dir: Path = (
+            pipeline_dir.parent
+            / "audit"
+            / f"{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}"
+        )
+        audit_dir.mkdir(parents=True, exist_ok=True)
+
         # Load skill pipeline
         pipeline_fn = load_skill_pipeline(pipeline_dir)
 
@@ -276,14 +284,6 @@ def full_pipeline(
         LOGGER.info("=" * 70)
         LOGGER.info(f"MelleaSkills — Full Pipeline [{guardian_mode} mode]")
         LOGGER.info("=" * 70)
-
-        # Create the current audit directory
-        audit_dir = (
-            pipeline_dir.parent
-            / "audit"
-            / f"{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}"
-        )
-        audit_dir.mkdir(parents=True, exist_ok=True)
 
         # load and create ai atlas nexus instance
         from ai_atlas_nexus.library import AIAtlasNexus
@@ -357,7 +357,7 @@ def full_pipeline(
             InferenceService.guardian_engine(guardian_model, inference_engine_type),
         )
         guardian_plugin.register()
-        audit_plugin = AuditTrailPlugin(
+        audit_plugin: AuditTrailPlugin = AuditTrailPlugin(
             log_path=audit_dir / "audit_trail.jsonl", guardian_plugin=guardian_plugin
         )
         audit_plugin.register()
