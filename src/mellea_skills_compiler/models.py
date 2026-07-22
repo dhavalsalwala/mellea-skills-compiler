@@ -86,7 +86,7 @@ class PolicyManifest:
         return data
 
     @classmethod
-    def from_json(cls, path: str) -> "PolicyManifest":
+    def from_json(cls, path: Path) -> "PolicyManifest":
         """Load a PolicyManifest from a JSON file produced by to_json()."""
         with open(path) as f:
             data = json.load(f)
