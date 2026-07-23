@@ -259,7 +259,19 @@ def _guardian_block(enforce: bool = False) -> str:
         "    _manifest = PolicyManifest.from_json(str(_manifest_path))\n"
         f"    guardian_plugin = {plugin_class}(_manifest)\n"
         "    guardian_plugin.register()\n"
-        '    AuditTrailPlugin(log_path=Path(__file__).parent / "audit" / "runtime_audit.jsonl", guardian_plugin=guardian_plugin).register()\n'
+        '    _audit_log = Path(__file__).parent / "audit" / "runtime_audit.jsonl"\n'
+        "    _audit_dir = _audit_log.parent\n"
+        "    try:\n"
+        "        _audit_dir.mkdir(parents=True, exist_ok=True)\n"
+        "        _probe = _audit_dir / '.write_probe'\n"
+        "        _probe.touch()\n"
+        "        _probe.unlink()\n"
+        "    except OSError as _e:\n"
+        "        raise SystemExit(\n"
+        "            f'[guardian] audit trail directory {_audit_dir} is not writable: {_e}. '\n"
+        "            'Grant write access (see EXPORT_NOTES.md) or remove policy_manifest.json to disable Guardian.'\n"
+        "        )\n"
+        "    AuditTrailPlugin(log_path=_audit_log, guardian_plugin=guardian_plugin).register()\n"
         "\n"
     )
 
@@ -543,7 +555,7 @@ def _graph_heartbeat(
         "graph = _builder.compile(checkpointer=MemorySaver())\n"
         "\n# Run a heartbeat tick:\n"
         '# config = {"configurable": {"thread_id": HEARTBEAT_THREAD_ID}}\n'
-        '# graph.invoke({"heartbeat_state": None}, config=config)\n'
+        '# asyncio.run(graph.ainvoke({"heartbeat_state": None}, config=config))\n'
         "# Schedule is declared in langgraph.json — see the 'schedules' block.\n"
     )
     return h + node + footer
@@ -694,7 +706,8 @@ def _render_pyproject_toml(
 
 _MODALITY_INVOCATION = {
     "synchronous_oneshot": (
-        'result = graph.invoke({{"input": {example_input}}})\n'
+        "import asyncio\n\n"
+        'result = asyncio.run(graph.ainvoke({{"input": {example_input}}}))\n'
         'print(result["output"])'
     ),
     "streaming": (
@@ -706,27 +719,31 @@ _MODALITY_INVOCATION = {
         "asyncio.run(run())"
     ),
     "conversational_session": (
+        "import asyncio\n\n"
         'config = {{"configurable": {{"thread_id": "my-session"}}}}\n'
-        'result = graph.invoke({{"input": {example_input}}}, config=config)\n'
+        'result = asyncio.run(graph.ainvoke({{"input": {example_input}}}, config=config))\n'
         'print(result["output"])\n'
         "# Continue the conversation — same thread_id carries history:\n"
-        'result2 = graph.invoke({{"input": "follow-up question"}}, config=config)'
+        'result2 = asyncio.run(graph.ainvoke({{"input": "follow-up question"}}, config=config))'
     ),
     "scheduled": (
+        "import asyncio\n\n"
         "# Scheduled invocation — triggered by langgraph.json cron expression.\n"
         "# Manual trigger for testing:\n"
-        'result = graph.invoke({{}})\nprint(result["output"])'
+        'result = asyncio.run(graph.ainvoke({{}}))\nprint(result["output"])'
     ),
     "event_triggered": (
+        "import asyncio\n\n"
         "# Triggered by webhook payload. Manual trigger for testing:\n"
         'event_payload = {{"source": "webhook", "data": "..."}}\n'
-        'result = graph.invoke({{"event": event_payload}})\nprint(result["output"])'
+        'result = asyncio.run(graph.ainvoke({{"event": event_payload}}))\nprint(result["output"])'
     ),
     "heartbeat": (
+        "import asyncio\n\n"
         "from graph import graph, HEARTBEAT_THREAD_ID\n\n"
         'config = {{"configurable": {{"thread_id": HEARTBEAT_THREAD_ID}}}}\n'
         "# First tick:\n"
-        'result = graph.invoke({{"heartbeat_state": None}}, config=config)\n'
+        'result = asyncio.run(graph.ainvoke({{"heartbeat_state": None}}, config=config))\n'
         "# Subsequent ticks use the same thread_id — MemorySaver carries state."
     ),
 }
@@ -804,7 +821,7 @@ def _render_env_example(env_vars: list[str]) -> str:
 
 def _deployment_guidance(modality: str, graph_name: str) -> str:
     guides = {
-        "synchronous_oneshot": "Install with `pip install -e .` and invoke via `graph.invoke()`.",
+        "synchronous_oneshot": "Install with `pip install -e .` and invoke via `asyncio.run(graph.ainvoke(...))`.",
         "streaming": "Use `graph.astream_events()` to receive token-level chunks.",
         "conversational_session": (
             "Pass the same `thread_id` in config across calls to continue a session. "
