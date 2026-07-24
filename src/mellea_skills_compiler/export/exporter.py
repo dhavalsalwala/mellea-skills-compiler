@@ -459,7 +459,7 @@ def _build_export_notes(plan: TranslationPlan, loaded: LoadedContext) -> str:
         next_steps = [
             "1. Review `graph.py` — the generated node calls `run_pipeline` directly.",
             f"2. {install_step}",
-            "3. Invoke: `python -c \"from graph import graph; print(graph.invoke({'input': {}})['output'])\"`",
+            "3. Invoke: `python -c \"import asyncio; from graph import graph; print(asyncio.run(graph.ainvoke({'input': {}}))['output'])\"`",
             "4. For LangGraph Platform: deploy using `langgraph.json`.",
         ]
     elif target == "mcp":
@@ -489,16 +489,24 @@ def _build_export_notes(plan: TranslationPlan, loaded: LoadedContext) -> str:
             if loaded.invocation.enforce
             else "**Mode**: audit — Guardian observes and logs but does not block operations."
         )
+        if target == "claude-code":
+            audit_path_line = "- **Audit log**: `$ADAPTER_DIR/audit/runtime_audit.jsonl` (defaults to `./audit` if `ADAPTER_DIR` is unset)."
+            audit_cmd_line = '  `mkdir -p "$ADAPTER_DIR/audit"` (or `mkdir -p ./audit` if `ADAPTER_DIR` is unset)'
+        else:
+            audit_path_line = "- **Audit log**: `<bundle_dir>/audit/runtime_audit.jsonl`."
+            audit_cmd_line = "  `mkdir -p <bundle_dir>/audit`"
         lines += [
             "## Guardian audit",
             "",
             f"This bundle was exported from a certified skill. Guardian {mode}-mode is active.",
             "",
             f"- {mode_note}",
-            "- **Audit log**: `<bundle_dir>/audit/runtime_audit.jsonl`",
-            "- **Write access**: the process running the entry point must have write permission to the"
-            " `audit/` directory adjacent to the bundle. Create it if it does not exist:",
-            "  `mkdir -p <bundle_dir>/audit`",
+            audit_path_line,
+            "- **Write access**: the process running the entry point must have write permission to this"
+            " directory. Create it if it does not exist:",
+            audit_cmd_line,
+            "- If the directory does not exist or isn't writable, the entry point will **fail at"
+            " startup** (a loud, non-zero-exit error) rather than silently losing audit evidence.",
             "- To suppress Guardian at runtime, remove `policy_manifest.json` from the bundle directory.",
             "",
         ]

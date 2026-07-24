@@ -80,6 +80,22 @@ class TestAuditTrailPluginInit:
 
         assert plugin.guardian_plugin is guardian_mock
 
+    def test_init_preserves_existing_entries_across_restarts(self, temp_audit_file):
+        """Regression: a fresh AuditTrailPlugin instance (e.g. after a process restart)
+        must not wipe audit entries written by a prior instance pointing at the same
+        log_path. Previously __init__ unlinked any existing file, silently destroying
+        the audit trail on every restart."""
+        first = AuditTrailPlugin(log_path=temp_audit_file, guardian_plugin=MagicMock())
+        first._write({"hook": "from_first_run"})
+
+        second = AuditTrailPlugin(log_path=temp_audit_file, guardian_plugin=MagicMock())
+        second._write({"hook": "from_second_run"})
+
+        with open(temp_audit_file) as f:
+            lines = [json.loads(line) for line in f.readlines()]
+
+        assert [line["hook"] for line in lines] == ["from_first_run", "from_second_run"]
+
 
 class TestAuditTrailWrite:
     """Test cases for _write method."""

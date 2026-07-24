@@ -64,10 +64,6 @@ class AuditTrailPlugin(
         )
         self._entries: list[dict] = []
 
-        # audit log
-        if log_path.exists():
-            log_path.unlink()
-
         log_path.parent.mkdir(parents=True, exist_ok=True)
         self.log_path = log_path
 

@@ -241,7 +241,19 @@ def _render_server_py(
             "        InferenceService.guardian_engine(),\n"
             "    )\n"
             "    guardian_plugin.register()\n"
-            '    AuditTrailPlugin(log_path=Path(__file__).parent / "audit" / "runtime_audit.jsonl", guardian_plugin=guardian_plugin).register()\n'
+            '    _audit_log = Path(__file__).parent / "audit" / "runtime_audit.jsonl"\n'
+            "    _audit_dir = _audit_log.parent\n"
+            "    try:\n"
+            "        _audit_dir.mkdir(parents=True, exist_ok=True)\n"
+            "        _probe = _audit_dir / '.write_probe'\n"
+            "        _probe.touch()\n"
+            "        _probe.unlink()\n"
+            "    except OSError as _e:\n"
+            "        raise SystemExit(\n"
+            "            f'[guardian] audit trail directory {_audit_dir} is not writable: {_e}. '\n"
+            "            'Grant write access (see EXPORT_NOTES.md) or remove policy_manifest.json to disable Guardian.'\n"
+            "        )\n"
+            "    AuditTrailPlugin(log_path=_audit_log, guardian_plugin=guardian_plugin).register()\n"
             "\n"
         )
 
