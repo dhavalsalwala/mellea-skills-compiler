@@ -7,6 +7,12 @@ from rich import print as rprint
 from rich.console import Console
 from rich.panel import Panel
 
+import mellea_skills_compiler.compile.backends  # noqa: F401 — triggers backend registration
+from mellea_skills_compiler.compile.backend import (
+    CompilationContext,
+    get_backend,
+    list_backends,
+)
 from mellea_skills_compiler.compile.claude_directives import (
     resolve_runtime_defaults,
     write_runtime_directive,
@@ -16,12 +22,6 @@ from mellea_skills_compiler.compile.grounding import (
     write_mellea_doc_index,
 )
 from mellea_skills_compiler.compile.writers.renderer import render_writers
-from mellea_skills_compiler.compile.backend import (
-    CompilationContext,
-    get_backend,
-    list_backends,
-)
-import mellea_skills_compiler.compile.backends  # noqa: F401 — triggers backend registration
 from mellea_skills_compiler.enums import (
     SpecFileFormat,
 )
@@ -30,7 +30,6 @@ from mellea_skills_compiler.toolkit.file_utils import (
     parse_spec_file,
 )
 from mellea_skills_compiler.toolkit.logging import configure_logger
-
 
 LOGGER = configure_logger()
 console = Console(log_time=True)
@@ -211,14 +210,14 @@ def compile(
         raise ValueError(
             f"Unknown backend '{backend}'. Available backends: {', '.join(available_backends)}"
         )
-    
+
     # Get the backend implementation and validate its environment
     backend_impl = get_backend(backend)
     is_valid, error_msg = backend_impl.validate_environment()
     if not is_valid:
         raise RuntimeError(f"Backend '{backend}' not available: {error_msg}")
     LOGGER.info("Backend '%s' environment validated successfully", backend)
-    
+
     # clears screen
     console.clear()
 
@@ -271,7 +270,7 @@ def compile(
             )
         )
 
-LOGGER.info("Using compilation backend: %s", backend)
+    LOGGER.info("Using compilation backend: %s", backend)
 
     # Derive mellea package name from the spec frontmatter
     mellea_package_name = _derive_mellea_package_name(spec_path, spec_frontmatter)
@@ -336,7 +335,6 @@ LOGGER.info("Using compilation backend: %s", backend)
             exc,
         )
 
-
     # Build compilation context and execute via backend
     context = CompilationContext(
         spec_path=spec_path,
@@ -347,13 +345,13 @@ LOGGER.info("Using compilation backend: %s", backend)
         repair_mode=repair_mode,
         skill_backend=chosen_backend,
         skill_model=chosen_model_id,
-        defaults_source-defaults_source,
+        defaults_source=defaults_source,
         refresh_cache=refresh_cache,
     )
     LOGGER.info("Starting compilation with backend '%s'", backend)
     result = backend_impl.compile(context)
     if not result.success:
-        raise RuntimeError(f"Compilation failed: {result.error_message}")
+        raise RuntimeError(f"Compilation failed - {result.error_message}")
     LOGGER.info("Backend compilation completed successfully")
 
     # Post-compile: render writers, validate, copy spec file
@@ -364,7 +362,9 @@ LOGGER.info("Using compilation backend: %s", backend)
         if spec_md_path:
             shutil.copy(spec_md_path, mellea_dir / SpecFileFormat.SKILL_FILE_MD)
     except Exception as e:
-            raise RuntimeError(f"Compilation failed with backend '{backend}': {str(e)}") from e
+        raise RuntimeError(
+            f"Compilation failed with backend '{backend}': {str(e)}"
+        ) from e
 
     console.print(
         f"\nMelleafy {'Repair' if repair_mode else 'Compile'} completed successfully.\n"
