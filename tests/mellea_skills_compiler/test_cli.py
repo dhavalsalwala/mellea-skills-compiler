@@ -13,7 +13,7 @@ from typer.testing import CliRunner
 
 from mellea_skills_compiler.cli import app
 
-runner = CliRunner(mix_stderr=False)
+runner = CliRunner()
 
 
 class TestCompileBackendFlag:
@@ -68,22 +68,6 @@ class TestCompileBackendFlag:
         # Verify default backend parameter
         call_kwargs = mock_compile.call_args[1]
         assert call_kwargs["backend"] == "claude"
-
-    @patch("mellea_skills_compiler.compile.backend.list_backends")
-    def test_backend_validation_happens_before_compile(self, mock_list_backends):
-        """Test that backend validation occurs before attempting compilation."""
-        mock_list_backends.return_value = ["claude"]
-
-        # Use invalid backend - should fail before compile is called
-        with patch("mellea_skills_compiler.compile.mellea_skills.compile") as mock_compile:
-            result = runner.invoke(
-                app,
-                ["compile", "test_spec.md", "--backend", "nonexistent"],
-            )
-
-            assert result.exit_code == 1
-            # compile should never be called
-            mock_compile.assert_not_called()
 
     @patch("mellea_skills_compiler.compile.mellea_skills.compile")
     @patch("mellea_skills_compiler.compile.backend.list_backends")

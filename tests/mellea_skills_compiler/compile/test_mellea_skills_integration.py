@@ -68,6 +68,7 @@ def failing_backend_mock():
 class TestCompileWithBackendParameter:
     """Test that compile() function uses backend parameter correctly."""
 
+    @patch("mellea_skills_compiler.compile.mellea_skills.render_writers")
     @patch("mellea_skills_compiler.compile.mellea_skills.Console.clear")
     @patch("mellea_skills_compiler.compile.mellea_skills.validate")
     @patch("mellea_skills_compiler.compile.mellea_skills.write_mellea_doc_index")
@@ -80,6 +81,7 @@ class TestCompileWithBackendParameter:
         mock_doc_index,
         mock_validate,
         mock_clear,
+        mock_render_writers,
         mock_spec_file,
         successful_backend_mock,
         tmp_path,
@@ -99,6 +101,7 @@ class TestCompileWithBackendParameter:
         # Verify get_backend was called with correct backend name
         mock_get_backend.assert_called_once_with("claude")
 
+    @patch("mellea_skills_compiler.compile.mellea_skills.render_writers")
     @patch("mellea_skills_compiler.compile.mellea_skills.Console.clear")
     @patch("mellea_skills_compiler.compile.mellea_skills.validate")
     @patch("mellea_skills_compiler.compile.mellea_skills.write_mellea_doc_index")
@@ -111,6 +114,7 @@ class TestCompileWithBackendParameter:
         mock_doc_index,
         mock_validate,
         mock_clear,
+        mock_render_writers,
         mock_spec_file,
         successful_backend_mock,
         tmp_path,
@@ -130,6 +134,7 @@ class TestCompileWithBackendParameter:
         # Verify validate_environment was called
         successful_backend_mock.validate_environment.assert_called_once()
 
+    @patch("mellea_skills_compiler.compile.mellea_skills.render_writers")
     @patch("mellea_skills_compiler.compile.mellea_skills.Console.clear")
     @patch("mellea_skills_compiler.compile.mellea_skills.write_mellea_doc_index")
     @patch("mellea_skills_compiler.compile.mellea_skills.write_mellea_api_ref")
@@ -140,6 +145,7 @@ class TestCompileWithBackendParameter:
         mock_api_ref,
         mock_doc_index,
         mock_clear,
+        mock_render_writers,
         mock_spec_file,
         failing_backend_mock,
         tmp_path,
@@ -157,6 +163,7 @@ class TestCompileWithBackendParameter:
                 backend="claude",
             )
 
+    @patch("mellea_skills_compiler.compile.mellea_skills.render_writers")
     @patch("mellea_skills_compiler.compile.mellea_skills.Console.clear")
     @patch("mellea_skills_compiler.compile.mellea_skills.validate")
     @patch("mellea_skills_compiler.compile.mellea_skills.write_mellea_doc_index")
@@ -169,6 +176,7 @@ class TestCompileWithBackendParameter:
         mock_doc_index,
         mock_validate,
         mock_clear,
+        mock_render_writers,
         mock_spec_file,
         successful_backend_mock,
         tmp_path,
@@ -203,6 +211,7 @@ class TestCompileWithBackendParameter:
         assert call_args.skill_model == "granite3.3:8b"
         assert call_args.refresh_cache is False
 
+    @patch("mellea_skills_compiler.compile.mellea_skills.render_writers")
     @patch("mellea_skills_compiler.compile.mellea_skills.Console.clear")
     @patch("mellea_skills_compiler.compile.mellea_skills.validate")
     @patch("mellea_skills_compiler.compile.mellea_skills.write_mellea_doc_index")
@@ -215,6 +224,7 @@ class TestCompileWithBackendParameter:
         mock_doc_index,
         mock_validate,
         mock_clear,
+        mock_render_writers,
         mock_spec_file,
         tmp_path,
     ):
@@ -232,7 +242,7 @@ class TestCompileWithBackendParameter:
         mock_api_ref.return_value = tmp_path / "mellea_api_ref.json"
         mock_doc_index.return_value = tmp_path / "mellea_doc_index.json"
         
-        with pytest.raises(RuntimeError, match="Compilation failed: Compilation timeout"):
+        with pytest.raises(RuntimeError, match="Compilation failed - Compilation timeout"):
             compile(
                 spec_path=mock_spec_file,
                 model="claude-3-5-sonnet-20241022",
@@ -240,6 +250,7 @@ class TestCompileWithBackendParameter:
                 backend="claude",
             )
 
+    @patch("mellea_skills_compiler.compile.mellea_skills.render_writers")
     @patch("mellea_skills_compiler.compile.mellea_skills.Console.clear")
     @patch("mellea_skills_compiler.compile.mellea_skills.validate")
     @patch("mellea_skills_compiler.compile.mellea_skills.write_mellea_doc_index")
@@ -252,6 +263,7 @@ class TestCompileWithBackendParameter:
         mock_doc_index,
         mock_validate,
         mock_clear,
+        mock_render_writers,
         mock_spec_file,
         successful_backend_mock,
         tmp_path,
