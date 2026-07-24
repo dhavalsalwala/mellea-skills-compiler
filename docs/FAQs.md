@@ -249,7 +249,6 @@ mellea-skills compile <spec>                   # Uses 'claude' by default
 
 **Current Status**: Only the `claude` backend is implemented in this release. The abstraction layer is designed to support future backends such as:
 - **IBM Bob** — Planned for Phase 2, will enable compilation using IBM's Bob agent framework
-- **Local LLMs** — Future support for running compilation entirely locally without cloud dependencies
 
 The backend abstraction ensures that when new backends are added, they will provide the same compilation guarantees (typed pipelines, validation, fixtures) while potentially offering different trade-offs in terms of cost, latency, or deployment constraints.
 
