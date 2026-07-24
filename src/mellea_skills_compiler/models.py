@@ -3,7 +3,7 @@ from collections import Counter
 from dataclasses import asdict, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Literal
 
 from mellea.plugins import PluginViolationError
 from pydantic import TypeAdapter
@@ -75,7 +75,7 @@ class PolicyManifest:
         """List of Guardian risk names for each identified risk."""
         return [r.name for r in self.risks]
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     def to_json(self, path: str | None = None) -> str:

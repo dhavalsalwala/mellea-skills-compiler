@@ -1,35 +1,28 @@
 import json
-import os
 import shutil
-import socketserver
-import subprocess
-import threading
-import time
 from pathlib import Path
 from typing import Dict, Optional
-from urllib.parse import urlparse
 
-from anthropic import Anthropic
 from rich import print as rprint
 from rich.console import Console
 from rich.panel import Panel
 
+import mellea_skills_compiler.compile.backends  # noqa: F401 — triggers backend registration
+from mellea_skills_compiler.compile.backend import (
+    CompilationContext,
+    get_backend,
+    list_backends,
+)
 from mellea_skills_compiler.compile.claude_directives import (
-    build_system_prompt,
     resolve_runtime_defaults,
-    write_compile_settings,
     write_runtime_directive,
 )
 from mellea_skills_compiler.compile.grounding import (
     write_mellea_api_ref,
     write_mellea_doc_index,
 )
-from mellea_skills_compiler.compile.proxy import ContextMgmtStrippingProxy
 from mellea_skills_compiler.compile.writers.renderer import render_writers
 from mellea_skills_compiler.enums import (
-    ClaudeResponseMessageType,
-    ClaudeResponseType,
-    InferenceModel,
     SpecFileFormat,
 )
 from mellea_skills_compiler.toolkit.file_utils import (
@@ -37,7 +30,6 @@ from mellea_skills_compiler.toolkit.file_utils import (
     parse_spec_file,
 )
 from mellea_skills_compiler.toolkit.logging import configure_logger
-
 
 LOGGER = configure_logger()
 console = Console(log_time=True)
@@ -210,9 +202,24 @@ def compile(
     refresh_cache: bool = False,
     skill_backend: Optional[str] = None,
     skill_model: Optional[str] = None,
+    backend: str = "claude",
 ) -> None:
+    # Validate backend parameter
+    available_backends = list_backends()
+    if backend not in available_backends:
+        raise ValueError(
+            f"Unknown backend '{backend}'. Available backends: {', '.join(available_backends)}"
+        )
+
+    # Get the backend implementation and validate its environment
+    backend_impl = get_backend(backend)
+    is_valid, error_msg = backend_impl.validate_environment()
+    if not is_valid:
+        raise RuntimeError(f"Backend '{backend}' not available: {error_msg}")
+    LOGGER.info("Backend '%s' environment validated successfully", backend)
+
     # clears screen
-    subprocess.run(["clear"])
+    console.clear()
 
     # print mellea-fy header
     console.print()
@@ -263,67 +270,7 @@ def compile(
             )
         )
 
-    # Check and verify claude model
-    available_models = None
-    try:
-        available_models = [model.id for model in Anthropic().models.list()]
-    except Exception as e:
-        raise Exception(f"Unable to connect to Anthropic API - {str(e)}")
-
-    if not available_models:
-        raise ValueError(f"No claude models available with your API key.")
-
-    if model:
-        if model in available_models:
-            # user provided model in available in available models.
-            pass
-        else:
-            raise ValueError(
-                f"Invalid Claude model provided - {model}\nAvailable: {available_models}"
-            )
-    else:
-        # User did not provide the Claude model. Therefore, filter the available models by the GraniteClaw default and select the first one.
-        models = [
-            model
-            for model in available_models
-            if InferenceModel.CLAUDE_MODEL in model.lower()
-        ]
-        if not models:
-            # Available models does not have the GraniteClaw default. Ask user to choose one.
-            raise ValueError(
-                f"Please provide claude model via --model option.\nAvailable: {available_models}"
-            )
-
-        # Use the first model to compile given skill
-        model = models[0]
-
-    console.print(
-        f"\n[green]{'Repairing' if repair_mode else 'Compiling'} using Claude model:[/] {model}\n"
-    )
-
-    # Start a local proxy that strips context_management from API requests.
-    # The IBM LiteLLM proxy rejects that field; Claude Code sends it automatically.
-    # Forward to the real upstream (ANTHROPIC_BASE_URL if set, else api.anthropic.com).
-    _real_base = os.environ.get(
-        "ANTHROPIC_BASE_URL", "https://api.anthropic.com"
-    ).rstrip("/")
-    _parsed = urlparse(_real_base)
-    proxy_server = socketserver.ThreadingTCPServer(
-        ("127.0.0.1", 0), ContextMgmtStrippingProxy
-    )
-    proxy_server.allow_reuse_address = True
-    proxy_server.upstream_scheme = _parsed.scheme
-    proxy_server.upstream_host = _parsed.netloc
-    proxy_server.upstream_path_prefix = _parsed.path
-    proxy_port = proxy_server.server_address[1]
-    proxy_thread = threading.Thread(target=proxy_server.serve_forever)
-    proxy_thread.daemon = True
-    proxy_thread.start()
-
-    subprocess_env = {
-        **os.environ,
-        "ANTHROPIC_BASE_URL": f"http://127.0.0.1:{proxy_port}",
-    }
+    LOGGER.info("Using compilation backend: %s", backend)
 
     # Derive mellea package name from the spec frontmatter
     mellea_package_name = _derive_mellea_package_name(spec_path, spec_frontmatter)
@@ -388,155 +335,36 @@ def compile(
             exc,
         )
 
-    # Write the per-invocation Claude Code settings file with deny rules for
-    # the paths the wrapper renders authoritatively (currently config.py).
-    # Passed to claude via --settings; deny rules are honoured deterministically
-    # in -p mode (verified in the synthetic test).
+    # Build compilation context and execute via backend
+    context = CompilationContext(
+        spec_path=spec_path,
+        package_dir=mellea_package_dir,
+        intermediate_dir=intermediate_dir,
+        model=model,
+        timeout=timeout,
+        repair_mode=repair_mode,
+        skill_backend=chosen_backend,
+        skill_model=chosen_model_id,
+        defaults_source=defaults_source,
+        refresh_cache=refresh_cache,
+    )
+    LOGGER.info("Starting compilation with backend '%s'", backend)
+    result = backend_impl.compile(context)
+    if not result.success:
+        raise RuntimeError(f"Compilation failed - {result.error_message}")
+    LOGGER.info("Backend compilation completed successfully")
+
+    # Post-compile: render writers, validate, copy spec file
     try:
-        compile_settings_path = write_compile_settings(
-            intermediate_dir, mellea_package_dir
-        )
-    except Exception as exc:
-        LOGGER.warning(
-            "Could not write per-invocation settings (%s). Falling back to no "
-            "deny rules; the wrapper will still overwrite wrapper-rendered paths.",
-            exc,
-        )
-        compile_settings_path = None
-
-    # Build claude system prompt
-    system_prompt = build_system_prompt(
-        chosen_backend, chosen_model_id, defaults_source, mellea_package_dir
-    )
-
-    # Start compilation process
-    process = None
-    claude_argv = [
-        "claude",
-        "-p",
-        "--model",
-        f"{model}",
-        "--append-system-prompt",
-        system_prompt,
-        "--allowed-tools",
-        "Read,Write,Edit",
-        "--output-format",
-        "stream-json",
-        "--verbose",
-        "--permission-mode",
-        "acceptEdits",
-    ]
-
-    if compile_settings_path is not None:
-        claude_argv.extend(["--settings", str(compile_settings_path)])
-
-    claude_argv.append(
-        f"'{'./mellea-fy-repair' if repair_mode else './mellea-fy'} {str(spec_path)}'"
-    )
-
-    # Set Mellea-fy process start time
-    start_time = time.time()
-
-    # Create processing animation
-    processing = console.status(
-        "[italic bold yellow]Processing...[/]", spinner_style="status.spinner"
-    )
-
-    try:
-        process = subprocess.Popen(
-            claude_argv,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1,
-            env=subprocess_env,
-        )
-
-        stderr_lines = []
-
-        def read_stderr():
-            for line in iter(process.stderr.readline, ""):
-                if line:
-                    stderr_lines.append(line.strip())
-
-        # Thread for reading stderr
-        stderr_thread = threading.Thread(target=read_stderr)
-        stderr_thread.daemon = True
-        stderr_thread.start()
-
-        # Read stdout in main thread
-        processing.start()
-        while True:
-            elapsed = time.time() - start_time
-            if elapsed >= timeout:
-                raise TimeoutError(
-                    f"Mellea-fy skill compilation failed due to timeout. Process timed out after {elapsed}s (limit: {timeout}s)"
-                )
-
-            # Read output
-            output = process.stdout.readline()
-
-            if output == "" and process.poll() is not None:
-                processing.stop()
-                break
-
-            if output:
-                try:
-                    response = json.loads(output.strip())
-                    if response.get("type", None) == ClaudeResponseType.ASSISTANT:
-                        for message_content in response.get("message", {}).get(
-                            "content", []
-                        ):
-                            if (
-                                message_content.get("type", None)
-                                == ClaudeResponseMessageType.TEXT
-                            ):
-                                console.print(
-                                    f"[cyan]{message_content.get('text', '')}[/]\n"
-                                )
-                except json.decoder.JSONDecodeError as e:
-                    console.print("Claude message parsing error: " + str(e))
-
-        # Wait for stderr thread
-        stderr_thread.join(timeout=1)
-
-        # Print error if process failed.
-        return_code = process.wait(timeout=1)
-        if return_code != 0:
-            raise subprocess.SubprocessError(
-                f"Mellea-fy skill compilation failed with return code {return_code}. "
-                f"Error: {' '.join(stderr_lines)}"
-            )
-
-        # Get the melleafy compiled directory
         mellea_dir: Path = _select_canonical_mellea_dir(spec_dir, mellea_package_name)
-        if mellea_dir.exists():
-            # Render respective artefact writers
-            render_writers(mellea_dir, enforce=True)
-
-            # validate compiled skill pipeline
-            validate(mellea_dir, no_run=no_run, all_fixtures=False)
-
-            # copy spec file into the compiled directory
-            if spec_md_path:
-                shutil.copy(spec_md_path, mellea_dir / SpecFileFormat.SKILL_FILE_MD)
-        else:
-            raise Exception(f"No {mellea_dir} directory found after compilation")
-
-    except (TimeoutError, subprocess.SubprocessError):
-        processing.stop()
-        if process and process.poll() is None:
-            process.kill()
-            process.wait()
-        raise
+        render_writers(mellea_dir, enforce=True)
+        validate(mellea_dir, no_run=no_run, all_fixtures=False)
+        if spec_md_path:
+            shutil.copy(spec_md_path, mellea_dir / SpecFileFormat.SKILL_FILE_MD)
     except Exception as e:
-        processing.stop()
-        if process and process.poll() is None:
-            process.kill()
-            process.wait()
-        raise Exception(f"Mellea-fy skill compilation failed - {str(e)}") from e
-    finally:
-        proxy_server.shutdown()
+        raise RuntimeError(
+            f"Compilation failed with backend '{backend}': {str(e)}"
+        ) from e
 
     console.print(
         f"\nMelleafy {'Repair' if repair_mode else 'Compile'} completed successfully.\n"

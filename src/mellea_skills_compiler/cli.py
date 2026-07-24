@@ -35,7 +35,7 @@ def main() -> None:
 
 @app.command(
     help="Melleafy Compile: Decompose an Agent Spec into Mellea Code",
-    epilog="Compile Mellea skill specification into a Mellea pipeline using mellea-fy Claude command.",
+    epilog="Compile Mellea skill specification into a Mellea pipeline. Use --backend to select compilation backend (currently only 'claude' is supported).",
 )
 def compile(
     ctx: typer.Context,
@@ -46,7 +46,7 @@ def compile(
         ),
     ],
     model: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             "--model",
             "-m",
@@ -99,6 +99,14 @@ def compile(
             "(default from mellea_skills_compiler/compile/claude/data/runtime_defaults.json).",
         ),
     ] = None,
+    backend: Annotated[
+        str,
+        typer.Option(
+            "--backend",
+            "-b",
+            help="Compilation backend to use. Currently only 'claude' is supported.",
+        ),
+    ] = "claude",
 ):
     """
     Compile Mellea skill specification into a Mellea pipeline using mellea-fy Claude command.
@@ -108,12 +116,11 @@ def compile(
     against the LLM backend. A green compile means compiled + lints passed +
     smoke-check passed (or skipped because backend was unreachable).
     """
-    spec_path = Path(spec_path)
     try:
         from mellea_skills_compiler.compile import mellea_skills
 
         mellea_skills.compile(
-            spec_path,
+            Path(spec_path),
             model,
             timeout,
             repair_mode=repair_mode,
@@ -121,6 +128,7 @@ def compile(
             refresh_cache=refresh_cache,
             skill_backend=skill_backend,
             skill_model=skill_model,
+            backend=backend,
         )
     except Exception as e:
         LOGGER.error(str(e))
