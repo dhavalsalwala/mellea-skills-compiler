@@ -1,3 +1,10 @@
+#bob stuff
+*.bob/
+*bobnotes/
+*notes/
+pending-notes.txt
+*IMPLEMENTATION_PLAN.md
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -182,3 +189,4 @@ node_modules
 # Examples folders
 examples/
 skills/
+Bob_Mellea.md
