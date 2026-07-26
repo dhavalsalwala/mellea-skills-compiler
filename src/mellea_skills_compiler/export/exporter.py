@@ -194,11 +194,11 @@ def stage2_load(inv: Invocation, manifest: dict) -> LoadedContext:
 
     # Policy manifest (optional) — check the skill dir itself first, then any
     # audit_* sibling directories produced by the certify command.
-    policy_manifest_path = None
+    policy_manifest_path: Optional[Path] = None
     if (skill_root / "policy_manifest.json").exists():
         policy_manifest_path = skill_root / "policy_manifest.json"
     else:
-        audit_parent = Path(skill_root.parent / "audit")
+        audit_parent: Path = Path(skill_root.parent / "audit")
         if audit_parent.exists():
             for audit_dir in reversed(list(audit_parent.glob("*"))):
                 if (audit_dir / "policy_manifest.json").exists():
