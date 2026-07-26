@@ -8,8 +8,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from mellea_skills_compiler.models import PolicyManifest
-from mellea_skills_compiler.plugins.audit import AuditTrailPlugin, GuardianAuditPlugin
+from mellea_skills_compiler.plugins.audit import AuditTrailPlugin
+from mellea_skills_compiler.plugins.guardian import GuardianAuditPlugin
 
 
 @pytest.fixture

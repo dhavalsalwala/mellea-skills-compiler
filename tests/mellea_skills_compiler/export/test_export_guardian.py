@@ -277,7 +277,7 @@ class TestAuditWritabilityProbe:
         assert "not writable" in result
         assert "sys.exit(1)" in result
         assert result.index("not writable") < result.index(
-            "audit_plugin = AuditTrailPlugin("
+            "audit_plugin: AuditTrailPlugin = AuditTrailPlugin("
         )
 
     def test_claude_code_probe_uses_json_envelope_not_systemexit(self):
