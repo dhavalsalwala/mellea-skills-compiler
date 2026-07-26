@@ -273,7 +273,7 @@ Run end-to-end certification — risk identification via AI Atlas Nexus, Guardia
 mellea-skills certify <Your-local-path>/skills/weather/weather_mellea                      # provide path to the compiled skill directory
 mellea-skills certify <Your-local-path>/skills/weather/weather_mellea --enforce            # Block on risk detection
 mellea-skills certify <Your-local-path>/skills/weather/weather_mellea --fixture rain_check # Run specific fixture - rain_check
-mellea-skills certify <Your-local-path>/skills/weather/weather_mellea --model granite4.1:3b --guardian-model ibm/granite3.3-guardian:8b --inference-engine ollama    # Using different risk model, guardian model and inference engine
+mellea-skills certify <Your-local-path>/skills/weather/weather_mellea --risk-model granite4.1:3b --guardian-model ibm/granite3.3-guardian:8b --inference-engine ollama    # Using different risk model, guardian model and inference engine
 ```
 
 ### Export Compiled Mellea Skill
