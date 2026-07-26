@@ -85,8 +85,8 @@ agent specification        spec → typed pipeline                   Guardian ho
       or if you have an ANTHROPIC_API_KEY
 
       ```
-      export ANTHROPIC_API_KEY = ""
       export ANTHROPIC_BASE_URL = ""
+      export ANTHROPIC_API_KEY = ""
       ```
 
 ### Project Code
@@ -97,7 +97,7 @@ Clone code repository
 git clone https://github.com/generative-computing/mellea-skills-compiler
 ```
 
-Create Python environment and install library
+#### Create Python environment and install library
 
 ```bash
 # Requires Python >=3.11, <3.14.4
@@ -107,11 +107,22 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-Set Ollama API URL in the environment variables:
+#### Set Inference Service Credentials
+
+For Ollama, set API URL in the environment variables:
 
 ```bash
-export OLLAMA_API_URL=<ollama-api-url>
+export OLLAMA_API_URL=<ollama-api-url> # e.g. http://localhost:11434
 ```
+
+For online vLLM, set API URL and API KEY(optionally) in the environment variables:
+
+```bash
+export VLLM_API_URL_RISK_MODEL=<vllm-api-url> # api url of hosted risk model e.g. http://localhost:8000
+export VLLM_API_URL_GUARDIAN_MODEL=<vllm-api-url> # api url of hosted guardian model e.g. http://localhost:8001
+```
+
+For offline vLLM, there is no need to set API URL and API KEY in the environment variables.
 
 ## Quick Start
 
@@ -119,20 +130,22 @@ export OLLAMA_API_URL=<ollama-api-url>
 
 Example skills: https://github.com/generative-computing/mellea-skills-compiler/tree/main/skills
 
-### Ollama Models
+### Risk Identification and Assessment Models
 
-We recommend downloading the Ollama models `granite4.1:3b` and `ibm/granite3.3-guardian:8b` beforehand, as they are set as defaults.
+You can change these models using the `--risk-model` and `--guardian-model` parameters when executing the **Run** and **Certify** commands. To use the default models, follow the instructions below.
 
-For Risk Identification
+#### For Ollama, we recommend downloading the Ollama models beforehand, as they are set as defaults. They will be downloaded during the first request
 
 ```
 ollama pull granite4.1:3b
-```
-
-For Risk Assessment
-
-```
 ollama pull ibm/granite3.3-guardian:8b
+```
+
+#### For vLLM, you can use the Hugging Face CLI to download default models, or they will be downloaded during the first request.
+
+```
+hf download ibm-granite/granite-4.1-3b
+hf download ibm-granite/granite-guardian-3.3-8b
 ```
 
 ### Node.js Interactive CLI
