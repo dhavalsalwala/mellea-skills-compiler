@@ -112,14 +112,14 @@ pip install -e .
 For Ollama, set API URL in the environment variables:
 
 ```bash
-export OLLAMA_API_URL=<ollama-api-url> # e.g. http://localhost:11434
+export OLLAMA_API_URL=<api-url> # e.g. http://localhost:11434
 ```
 
 For online vLLM, set API URL and API KEY(optionally) in the environment variables:
 
 ```bash
-export VLLM_API_URL_RISK_MODEL=<vllm-api-url> # api url of hosted risk model e.g. http://localhost:8000
-export VLLM_API_URL_GUARDIAN_MODEL=<vllm-api-url> # api url of hosted guardian model e.g. http://localhost:8001
+export VLLM_API_URL_RISK_MODEL=<api-url> # api url of hosted risk model e.g. http://localhost:8000
+export VLLM_API_URL_GUARDIAN_MODEL=<api-url> # api url of hosted guardian model e.g. http://localhost:8001
 ```
 
 For offline vLLM, there is no need to set API URL and API KEY in the environment variables.
@@ -134,14 +134,14 @@ Example skills: https://github.com/generative-computing/mellea-skills-compiler/t
 
 You can change these models using the `--risk-model` and `--guardian-model` parameters when executing the **Run** and **Certify** commands. To use the default models, follow the instructions below.
 
-#### For Ollama, we recommend downloading the Ollama models beforehand, as they are set as defaults. They will be downloaded during the first request
+For Ollama, we recommend downloading the Ollama models beforehand, as they are set as defaults. They will be downloaded during the first request
 
 ```
 ollama pull granite4.1:3b
 ollama pull ibm/granite3.3-guardian:8b
 ```
 
-#### For vLLM, you can use the Hugging Face CLI to download default models, or they will be downloaded during the first request.
+For vLLM, you can use the Hugging Face CLI to download default models, or they will be downloaded during the first request.
 
 ```
 hf download ibm-granite/granite-4.1-3b
