@@ -78,7 +78,7 @@ class PolicyManifest:
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
-    def to_json(self, path: Path) -> str:
+    def to_json(self, path: Optional[Path] = None) -> str:
         data = json.dumps(self.to_dict(), indent=2)
         if path:
             with open(path, "w") as f:
