@@ -105,9 +105,11 @@ def ingest_one(
 
     # Certification artifacts go into the skill's audit/ directory
     audit_dir = (
-        spec_path.parent / f"audit_{datetime.now().strftime("%d-%m-%Y_%H-%M-%S")}"
+        spec_path.parent
+        / "audit"
+        / f"{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}"
     )
-    audit_dir.mkdir(exist_ok=True)
+    audit_dir.mkdir(parents=True, exist_ok=True)
 
     # Genereate policy manifest
     manifest = policy.generate_policy_manifest(
