@@ -11,6 +11,7 @@ Pipeline:
 """
 
 from datetime import datetime
+from logging import Logger
 from pathlib import Path
 from typing import Optional
 
@@ -27,7 +28,7 @@ from mellea_skills_compiler.toolkit.file_utils import parse_spec_file
 from mellea_skills_compiler.toolkit.logging import configure_logger
 
 
-log = configure_logger()
+LOGGER: Logger = configure_logger()
 
 
 def ingest_one(
@@ -35,7 +36,7 @@ def ingest_one(
     dry_run: bool = False,
     risk_model: Optional[str] = None,
     inference_engine_type: InferenceEngineType = InferenceEngineType.OLLAMA,
-):
+) -> None:
     """Risk Analysis and Policy Generation Pipeline for Mellea skill
 
     Args:
@@ -61,36 +62,36 @@ def ingest_one(
     else:
         raise FileNotFoundError(f"Skill spec file not found: {spec_path}")
 
-    log.info("=== MelleaSkills — SKILL.md Ingestion ===")
-    log.info("")
+    LOGGER.info("=== MelleaSkills — SKILL.md Ingestion ===")
+    LOGGER.info("")
 
     # ── Step 1: Parse ───────────────────────────────────────────────
-    log.info("Step 1: Parsing %s...", spec_path.name)
+    LOGGER.info("Step 1: Parsing %s...", spec_path.name)
     parsed = parse_spec_file(spec_path)
     fm = parsed["frontmatter"]
-    log.info("  Name: %s", fm.get("name", "unknown"))
-    log.info("  Description: %.100s", fm.get("description", ""))
-    log.info("  Tools: %s", fm.get("allowed-tools", []))
-    log.info("")
+    LOGGER.info("  Name: %s", fm.get("name", "unknown"))
+    LOGGER.info("  Description: %.100s", fm.get("description", ""))
+    LOGGER.info("  Tools: %s", fm.get("allowed-tools", []))
+    LOGGER.info("")
 
     # ── Step 2: Sensitivity classification ──────────────────────────
-    log.info("Step 2: Tool sensitivity classification...")
+    LOGGER.info("Step 2: Tool sensitivity classification...")
     sensitivity = classify_skill_sensitivity(
         fm.get("allowed-tools", []), parsed["body"]
     )
-    log.info("  Tier: %s", sensitivity["tier_display"])
-    log.info("  Operations: %s", sensitivity["operations"])
+    LOGGER.info("  Tier: %s", sensitivity["tier_display"])
+    LOGGER.info("  Operations: %s", sensitivity["operations"])
     if sensitivity["capabilities"]:
-        log.info("  Capabilities: %s", sensitivity["capabilities"])
-    log.info("")
+        LOGGER.info("  Capabilities: %s", sensitivity["capabilities"])
+    LOGGER.info("")
 
     # ── Step 3: Compose use-case description ────────────────────────
     use_case = skill_to_use_case(parsed, sensitivity)
-    log.info("Step 3: Use-case description:")
-    log.info("  %s", use_case)
+    LOGGER.info("Step 3: Use-case description:")
+    LOGGER.info("  %s", use_case)
 
     if dry_run:
-        log.info("=== Dry-run complete ===")
+        LOGGER.info("=== Dry-run complete ===")
         return
 
     # load and create ai atlas nexus instance
@@ -100,7 +101,7 @@ def ingest_one(
     nexus = AIAtlasNexus(base_dir=nexus_data_path)
 
     # ── Step 4: Nexus risk identification ───────────────────────────
-    log.info("Step 4: Identifying risks via AI Atlas Nexus...")
+    LOGGER.info("Step 4: Identifying risks via AI Atlas Nexus...")
 
     # Certification artifacts go into the skill's audit/ directory
     audit_dir = (
@@ -110,7 +111,7 @@ def ingest_one(
 
     # Genereate policy manifest
     manifest = policy.generate_policy_manifest(
-        use_case, nexus, InferenceService.risk_engine(risk_model, inference_engine_type)
+        use_case, nexus, inference_engine=InferenceService.risk_engine(risk_model, inference_engine_type)
     )
     manifest_path = audit_dir / "policy_manifest.json"
     manifest.to_json(manifest_path)
@@ -120,49 +121,49 @@ def ingest_one(
     policy_path = audit_dir / "POLICY.md"
     policy_path.write_text(policy_md)
 
-    log.info("Policy manifest: %s", manifest_path)
-    log.info("Policy document: %s", policy_path)
+    LOGGER.info("Policy manifest: %s", manifest_path)
+    LOGGER.info("Policy document: %s", policy_path)
 
     # ── Step 5: Compliance classification ───────────────────────────
-    log.info("Step 5: Compliance classification...")
+    LOGGER.info("Step 5: Compliance classification...")
     compliance = classify_governance_requirements(manifest, nexus)
     counts = compliance.counts
-    log.info(
+    LOGGER.info(
         "  AUTOMATED=%d  PARTIAL=%d  MANUAL=%d  (total=%d)",
         counts["AUTOMATED"],
         counts["PARTIAL"],
         counts["MANUAL"],
         sum(counts.values()),
     )
-    log.info("")
+    LOGGER.info("")
 
     # ── Step 6: Certification report ────────────────────────────────
-    log.info("Step 6: Generating certification report...")
-    report = generate_certification_report(
+    LOGGER.info("Step 6: Generating certification report...")
+    report: str = generate_certification_report(
         manifest,
         compliance,
         audit_trail=[],
         audit_path="(no runtime audit — static analysis only)",
     )
-    report_path = audit_dir / "CERTIFICATION.md"
-    report_path.write_text(report)
-    log.info("  Artifact: %s", report_path.name)
-    log.info("")
+    report_path: Path = audit_dir / "CERTIFICATION.md"
+    report_path.write_text(data=report)
+    LOGGER.info("  Artifact: %s", report_path.name)
+    LOGGER.info("")
 
     # ── Summary ─────────────────────────────────────────────────────
     skill_name = fm.get("name", "unknown")
-    log.info("=== Summary: %s ===", skill_name)
-    log.info(
+    LOGGER.info("=== Summary: %s ===", skill_name)
+    LOGGER.info(
         "  Sensitivity: %s | Operations: %s",
         sensitivity["tier_display"],
         sensitivity["operations"],
     )
-    log.info(
+    LOGGER.info(
         "  Guardian risks: %d | Governance actions: %d",
         len(manifest.risks),
         len(manifest.governance_actions),
     )
-    log.info(
+    LOGGER.info(
         "  Compliance: AUTOMATED=%d PARTIAL=%d MANUAL=%d",
         counts["AUTOMATED"],
         counts["PARTIAL"],

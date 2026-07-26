@@ -1,16 +1,18 @@
 import signal
 import sys
+from logging import Logger
 from pathlib import Path
 from typing import Annotated, Literal, Optional
 
 import typer
+from typer.main import Typer
 
 from mellea_skills_compiler.enums import GuardianMode, InferenceEngineType
 from mellea_skills_compiler.toolkit.logging import configure_logger
 
 
-app = typer.Typer(no_args_is_help=True)
-LOGGER = configure_logger()
+app: Typer = typer.Typer(no_args_is_help=True)
+LOGGER: Logger = configure_logger()
 
 
 def signal_handler(sig, frame):
@@ -221,7 +223,7 @@ def run(
             help="Skip Guardian checks even if a policy manifest exists.",
         ),
     ] = False,
-):
+) -> None:
     """
     Run Mellea Skill Pipeline.
 
@@ -234,7 +236,7 @@ def run(
         from mellea_skills_compiler.certification.pipeline import run_pipeline
 
         run_pipeline(
-            Path(pipeline_dir),
+            pipeline_dir=Path(pipeline_dir),
             guardian_mode=GuardianMode(
                 "disabled" if no_guardian else ("enforce" if enforce else "audit")
             ),
@@ -270,7 +272,7 @@ def ingest(
         ),
     ] = None,
     inference_engine: Annotated[
-        Literal["ollama"],
+        Literal["ollama", "vllm"],
         typer.Option(
             "--inference-engine",
             "-i",
@@ -278,7 +280,7 @@ def ingest(
             help="Service to use for LLM inference. Supported: ollama",
         ),
     ] = "ollama",
-):
+) -> None:
     """
     Run risk analysis on a skill specification.
 
@@ -289,10 +291,10 @@ def ingest(
         from mellea_skills_compiler.certification.ingest import ingest_one
 
         ingest_one(
-            Path(spec_path),
-            dry_run,
-            risk_model,
-            InferenceEngineType[inference_engine],
+            spec_path=Path(spec_path),
+            dry_run=dry_run,
+            risk_model=risk_model,
+            inference_engine_type=InferenceEngineType[inference_engine],
         )
     except Exception as e:
         LOGGER.error(f"Ingest command failed - {str(e)}")
@@ -339,7 +341,7 @@ def certify(
         ),
     ] = None,
     inference_engine: Annotated[
-        Literal["ollama"],
+        Literal["ollama", "vllm"],
         typer.Option(
             "--inference-engine",
             "-i",
@@ -347,7 +349,7 @@ def certify(
             help="Service to use for LLM inference. Supported: ollama",
         ),
     ] = "ollama",
-):
+) -> None:
     """
     Run full certification pipeline on a compiled skill.
 

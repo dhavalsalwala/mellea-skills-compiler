@@ -1,4 +1,5 @@
 from enum import Enum, StrEnum, auto
+from typing import List, Literal
 
 
 class ClaudeResponseType(StrEnum):
@@ -14,12 +15,13 @@ class InferenceEngineType(Enum):
     """Enum to contain possible values for inference engine types"""
 
     OLLAMA = auto()
+    VLLM = auto()
 
     @classmethod
-    def list(cls):
+    def list(cls) -> List[str]:
         return list(map(lambda c: c.name, cls))
 
-    def __str__(self):
+    def __str__(self) -> Literal['OLLAMA', 'VLLM']:
         return self.name
 
 
@@ -28,6 +30,8 @@ class InferenceModel(StrEnum):
 
     OLLAMA_RISK_MODEL = "granite4.1:3b"
     OLLAMA_GUARDIAN_MODEL = "ibm/granite3.3-guardian:8b"
+    VLLM_RISK_MODEL = "ibm-granite/granite-4.1-3b"
+    VLLM_GUARDIAN_MODEL = "ibm-granite/granite-guardian-3.3-8b"
     CLAUDE_MODEL = "sonnet"
 
 
@@ -47,7 +51,7 @@ class GovernanceTaxonomy(StrEnum):
     OWASP_ASI = "owasp-asi"
 
     @classmethod
-    def list(cls):
+    def list(cls) -> List[str]:
         return list(map(lambda c: c.value, cls))
 
 
@@ -62,7 +66,7 @@ class GuardianMode(StrEnum):
     ENFORCE = "enforce"
     AUDIT = "audit"
 
-    def __str__(self):
+    def __str__(self) -> Literal['DISABLED', 'ENFORCE', 'AUDIT']:
         return self.name
 
 
@@ -86,5 +90,5 @@ class HookStage(StrEnum):
     TOOLS_POST = "tools_post"
 
     @classmethod
-    def list(cls):
+    def list(cls) -> List[str]:
         return list(map(lambda c: c.value, cls))

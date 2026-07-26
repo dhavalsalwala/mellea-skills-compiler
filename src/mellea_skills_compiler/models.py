@@ -3,7 +3,7 @@ from collections import Counter
 from dataclasses import asdict, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union, Literal
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from mellea.plugins import PluginViolationError
 from pydantic import TypeAdapter
@@ -78,7 +78,7 @@ class PolicyManifest:
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
-    def to_json(self, path: str | None = None) -> str:
+    def to_json(self, path: Path) -> str:
         data = json.dumps(self.to_dict(), indent=2)
         if path:
             with open(path, "w") as f:
@@ -86,13 +86,13 @@ class PolicyManifest:
         return data
 
     @classmethod
-    def from_json(cls, path: Path) -> "PolicyManifest":
+    def from_json(cls, path: Path) -> PolicyManifest:
         """Load a PolicyManifest from a JSON file produced by to_json()."""
-        with open(path) as f:
-            data = json.load(f)
-        risks = [NexusRisk(**r) for r in data.get("risks", [])]
-        additional_risks = [NexusRisk(**r) for r in data.get("additional_risks", [])]
-        governance_actions = [
+        with open(file=path) as f:
+            data = json.load(fp=f)
+        risks: List[NexusRisk] = [NexusRisk(**r) for r in data.get("risks", [])]
+        additional_risks: List[NexusRisk] = [NexusRisk(**r) for r in data.get("additional_risks", [])]
+        governance_actions: List[GovernanceAction] = [
             GovernanceAction(**a) for a in data.get("governance_actions", [])
         ]
         return cls(
@@ -205,7 +205,7 @@ class RunResult:
     status: Literal["success", "failed"]
     input_parameters: Dict[str, Any]
     run_dir: Optional[Path] = None
-    artifact_paths: Optional[Dict[str, Path]] = field(default_factory=dict)
+    artifact_paths: Dict[str, Path] = field(default_factory=dict)
     guardian_verdicts: Optional[Dict[str, List[GuardianVerdict]]] = None
     error_details: Optional[Dict[str, Any]] = None
 
@@ -220,18 +220,18 @@ class RunResult:
                         file_path
                     )
 
-        # Write RunResult to the JSON file
-        run_result_path = self.run_dir / "run_result.json"
-        with open(run_result_path, "w", encoding="utf-8") as run_result_file:
-            json.dump(
-                TypeAdapter(RunResult).dump_python(self),
-                run_result_file,
-                indent=4,
-                default=str,
-            )
+            # Write RunResult to the JSON file
+            run_result_path = self.run_dir / "run_result.json"
+            with open(run_result_path, "w", encoding="utf-8") as run_result_file:
+                json.dump(
+                    TypeAdapter(RunResult).dump_python(self),
+                    run_result_file,
+                    indent=4,
+                    default=str,
+                )
 
-        print()
-        LOGGER.info(f"Run result written to {run_result_path}")
+            print()
+            LOGGER.info(f"Run result written to {run_result_path}")
 
     @classmethod
     def failed(cls, **kwargs):

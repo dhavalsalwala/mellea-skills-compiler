@@ -17,8 +17,9 @@ import random
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
+from logging import Logger
 from pathlib import Path
-from typing import Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from mellea.plugins import PluginViolationError
 from pydantic import TypeAdapter
@@ -40,13 +41,17 @@ from mellea_skills_compiler.certification.report import (
 )
 from mellea_skills_compiler.enums import (
     GuardianMode,
-    HookStage,
     InferenceEngineType,
     NexusRiskSource,
     SpecFileFormat,
 )
 from mellea_skills_compiler.inference import InferenceService
-from mellea_skills_compiler.models import Fixture, FixtureResult, RunResult
+from mellea_skills_compiler.models import (
+    Fixture,
+    FixtureResult,
+    PolicyManifest,
+    RunResult,
+)
 from mellea_skills_compiler.plugins.audit import AuditTrailPlugin
 from mellea_skills_compiler.plugins.guardian import (
     GuardianPlugin,
@@ -60,9 +65,9 @@ from mellea_skills_compiler.toolkit.file_utils import (
 from mellea_skills_compiler.toolkit.logging import configure_logger
 
 
-console = Console(log_time=True)
+console: Console = Console(log_time=True)
 
-LOGGER = configure_logger()
+LOGGER: Logger = configure_logger()
 
 
 def _dump_fixture_results(
@@ -111,11 +116,11 @@ def run_pipeline(
     """
 
     # Gather input parameters for audit purpose
-    input_parameters = locals().copy()
+    input_parameters: dict[str, Any] = locals().copy()
 
-    run_dir: Path = None
-    guardian_plugin: GuardianPlugin = None
-    audit_plugin: AuditTrailPlugin = None
+    run_dir: Optional[Path] = None
+    guardian_plugin: Optional[GuardianPlugin] = None
+    audit_plugin: Optional[AuditTrailPlugin] = None
 
     try:
         # Verify skill pipeline directory exists
@@ -134,7 +139,7 @@ def run_pipeline(
         run_dir = (
             pipeline_dir.parent
             / "runs"
-            / f"{datetime.now().strftime("%d-%m-%Y_%H-%M-%S")}"
+            / f"{datetime.now().strftime(format="%d-%m-%Y_%H-%M-%S")}"
         )
         run_dir.mkdir(parents=True, exist_ok=True)
 
@@ -142,12 +147,13 @@ def run_pipeline(
             LOGGER.info("Guardian checks disabled (--no-guardian)")
         else:
             # Get audit directory with the manifest file
-            manifest_path = None
-            audit_dirs = list(pipeline_dir.parent.glob("audit_*"))
-            for audit_dir in reversed(audit_dirs):
-                if (audit_dir / "policy_manifest.json").exists():
-                    manifest_path = audit_dir / "policy_manifest.json"
-                    break
+            manifest_path: Optional[Path] = None
+            audit_parent: Path = Path(pipeline_dir.parent / "audit")
+            if audit_parent.exists():
+                for audit_dir in reversed(list(audit_parent.glob("*"))):
+                    if (audit_dir / "policy_manifest.json").exists():
+                        manifest_path = audit_dir / "policy_manifest.json"
+                        break
 
             try:
                 if not manifest_path:
@@ -156,19 +162,19 @@ def run_pipeline(
                     )
                 else:
                     # Load existing policy manifest
-                    manifest = load_policy_manifest(manifest_path)
+                    manifest: PolicyManifest = load_policy_manifest(manifest_path)
 
                     # Configure plugins from manifest
                     LOGGER.info(
                         f"Configuring Guardian hooks from Policy Manifest...",
                     )
-                    guardian_plugin: GuardianPlugin = GuardianPluginFactory.create(
+                    guardian_plugin = GuardianPluginFactory.create(
                         guardian_mode,
                         manifest.risks,
                         InferenceService.guardian_engine(),
                     )
                     guardian_plugin.register()
-                    audit_plugin: AuditTrailPlugin = AuditTrailPlugin(
+                    audit_plugin = AuditTrailPlugin(
                         log_path=run_dir / "audit_trail.jsonl",
                         guardian_plugin=guardian_plugin,
                     )
@@ -182,17 +188,14 @@ def run_pipeline(
                 LOGGER.info("Running unguarded.")
 
         # Load skill pipeline
-        pipeline_fn = load_skill_pipeline(pipeline_dir)
-
-        # Load fixtures from the pipeline directory
-        fixtures: List[Fixture] = load_fixtures(pipeline_dir)
+        pipeline_fn: Callable = load_skill_pipeline(pipeline_dir)
 
         # Resolve fixture from possible sources
         fixture: Fixture = resolve_input(
             pipeline_fn=pipeline_fn,
-            fixture_id=fixture_id,
             input=input,
-            fixtures=fixtures,
+            fixture_id=fixture_id,
+            fixtures=load_fixtures(pipeline_dir) if fixture_id else None,
         )
 
         # run given fixture
@@ -200,8 +203,8 @@ def run_pipeline(
 
         # Write fixture results if available
         if fixture_result:
-            fixture_results_path = run_dir / "fixture_results.json"
-            _dump_fixture_results(fixture_results_path, [fixture_result])
+            fixture_results_path: Path = run_dir / "fixture_results.json"
+            _dump_fixture_results(results_path=fixture_results_path, fixture_results=[fixture_result])
 
         # output
         console.print(f"\n[bold blue]OUTPUT:[/]\n{fixture_result.output}")
@@ -221,6 +224,7 @@ def run_pipeline(
     finally:
         if guardian_plugin:
             guardian_plugin.deregister()
+        if audit_plugin:
             audit_plugin.deregister()
 
 
@@ -249,9 +253,9 @@ def full_pipeline(
     # Gather input parameters for audit purpose
     input_parameters = locals().copy()
 
-    audit_dir: Path = None
-    guardian_plugin: GuardianPlugin = None
-    audit_plugin: AuditTrailPlugin = None
+    audit_dir: Optional[Path] = None
+    guardian_plugin: Optional[GuardianPlugin] = None
+    audit_plugin: Optional[AuditTrailPlugin] = None
 
     try:
         # Verify skill pipeline directory exists
@@ -267,7 +271,7 @@ def full_pipeline(
             )
 
         # Create the current audit directory
-        audit_dir: Path = (
+        audit_dir = (
             pipeline_dir.parent
             / "audit"
             / f"{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}"
@@ -329,18 +333,18 @@ def full_pipeline(
         LOGGER.info("Identifying risks via AI Atlas Nexus...")
         nexus_data_path = get_data_path()
         nexus = AIAtlasNexus(base_dir=nexus_data_path)
-        manifest = generate_policy_manifest(
+        manifest: PolicyManifest = generate_policy_manifest(
             use_case,
             nexus,
-            InferenceService.risk_engine(risk_model, inference_engine_type),
+            inference_engine=InferenceService.risk_engine(risk_model, inference_engine_type),
         )
-        manifest_path = audit_dir / "policy_manifest.json"
-        manifest.to_json(manifest_path)
+        manifest_path: Path = audit_dir / "policy_manifest.json"
+        manifest.to_json(path=manifest_path)
 
         # ── Step 2: Generate policy markdown ────────────────────
-        policy_md = generate_policy_markdown(manifest)
-        policy_path = audit_dir / "POLICY.md"
-        policy_path.write_text(policy_md)
+        policy_md: str = generate_policy_markdown(manifest)
+        policy_path: Path = audit_dir / "POLICY.md"
+        policy_path.write_text(data=policy_md)
 
         # Log policy artifacts
         LOGGER.info("Policy manifest: %s", manifest_path)
@@ -351,13 +355,13 @@ def full_pipeline(
         LOGGER.info(
             f"Configuring Guardian hooks from Policy Manifest...",
         )
-        guardian_plugin: GuardianPlugin = GuardianPluginFactory.create(
+        guardian_plugin = GuardianPluginFactory.create(
             guardian_mode,
             manifest.risks,
             InferenceService.guardian_engine(guardian_model, inference_engine_type),
         )
         guardian_plugin.register()
-        audit_plugin: AuditTrailPlugin = AuditTrailPlugin(
+        audit_plugin = AuditTrailPlugin(
             log_path=audit_dir / "audit_trail.jsonl", guardian_plugin=guardian_plugin
         )
         audit_plugin.register()
@@ -365,7 +369,7 @@ def full_pipeline(
         # ── Step 4: Run the decomposed pipeline ───────────────────────────
 
         # Get random `n_fixtures` fixtures to evaluate
-        sample_fixtures = (
+        sample_fixtures: List[Fixture] = (
             random.sample(fixtures, n_fixtures) if len(fixtures) >= 3 else fixtures
         )
 
@@ -391,8 +395,8 @@ def full_pipeline(
                 }
 
                 # Collect results as they complete
-                for future in as_completed(future_to_fixture):
-                    fixture = future_to_fixture[future]
+                for future in as_completed(fs=future_to_fixture):
+                    fixture: Fixture = future_to_fixture[future]
                     fixture_result: FixtureResult = future.result(timeout=300)
                     fixture_results.append(fixture_result)
 
@@ -402,7 +406,7 @@ def full_pipeline(
 
         # Write fixture results if available
         if fixture_results:
-            fixture_results_path = audit_dir / "fixture_results.json"
+            fixture_results_path: Path = audit_dir / "fixture_results.json"
             _dump_fixture_results(fixture_results_path, fixture_results)
 
             # ── Fixture Execution Summary ──────────────────────────────
@@ -562,4 +566,5 @@ def full_pipeline(
     finally:
         if guardian_plugin:
             guardian_plugin.deregister()
+        if audit_plugin:
             audit_plugin.deregister()

@@ -1,10 +1,9 @@
 """AI Atlas Nexus policy generation for Mellea Skills Compiler."""
 
-from __future__ import annotations
-
 from collections import defaultdict
+from logging import Logger
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from mellea_skills_compiler.enums import (
     GovernanceTaxonomy,
@@ -14,10 +13,10 @@ from mellea_skills_compiler.models import GovernanceAction, NexusRisk, PolicyMan
 from mellea_skills_compiler.toolkit.logging import configure_logger
 
 
-LOGGER = configure_logger()
+LOGGER: Logger = configure_logger()
 
 
-def _get_fail_safe_risks():
+def _get_fail_safe_risks() -> List[NexusRisk]:
     return [
         NexusRisk(
             name=risk,
@@ -65,8 +64,8 @@ def generate_policy_manifest(
     identified_risks = risk_lists.get("risks", [])
     LOGGER.info(f"AI Atlas Nexus risks: {len(identified_risks)}")
 
-    risks = []
-    additional_risks = []
+    risks: list[NexusRisk] = []
+    additional_risks: list[NexusRisk] = []
 
     for risk in identified_risks:
         description = guardian_prompt = getattr(risk, "description", "").strip()
@@ -74,7 +73,7 @@ def generate_policy_manifest(
         # sort the risks, granite guardian and other
         if risk.isDefinedByTaxonomy == GovernanceTaxonomy.IBM_GRANITE_GUARDIAN:
             guardian_prompt = risk.tag if risk.tag else guardian_prompt
-            is_native = True if risk.tag else False
+            is_native: bool = True if risk.tag else False
             risks.append(
                 NexusRisk(
                     name=risk.name,
@@ -187,13 +186,13 @@ def generate_policy_markdown(manifest: PolicyManifest) -> str:
         )
 
     # ── Section 2: Governance actions (per taxonomy) ────────────────
+    section_num = 2
     if manifest.governance_actions:
         # Group actions by source taxonomy
         by_source: dict[str, list[GovernanceAction]] = defaultdict(list)
         for action in manifest.governance_actions:
             by_source[action.source].append(action)
 
-        section_num = 2
         for source, actions in by_source.items():
             lines.extend(
                 [
@@ -282,7 +281,7 @@ def load_policy_manifest(manifest_path: Path) -> PolicyManifest:
     """
     if manifest_path.is_file():
         try:
-            return PolicyManifest.from_json(str(manifest_path))
+            return PolicyManifest.from_json(path=manifest_path)
         except Exception as e:
             raise Exception(
                 f"Failed to load policy manifest from {manifest_path}: {str(e)}",

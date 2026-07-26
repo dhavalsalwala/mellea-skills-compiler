@@ -8,6 +8,8 @@ Implements Stage 1 of the deep-research recommendations:
 
 import inspect
 import json
+from inspect import Parameter, Signature
+from logging import Logger
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
@@ -18,7 +20,7 @@ from mellea_skills_compiler.models import Fixture
 from mellea_skills_compiler.toolkit.logging import configure_logger
 
 
-LOGGER = configure_logger()
+LOGGER: Logger = configure_logger()
 
 
 class InputResolutionError(Exception):
@@ -27,7 +29,7 @@ class InputResolutionError(Exception):
     pass
 
 
-def _parse_structured_input(content: str) -> Dict[str, Any]:
+def _parse_structured_input(content: str):
     """Parse JSON or YAML content into a dict.
 
     Returns:
@@ -69,8 +71,8 @@ def _should_parse_as_structured(content: str) -> bool:
 
 def resolve_input(
     pipeline_fn: Callable,
-    fixture_id: Optional[str] = None,
     input: Optional[str] = None,
+    fixture_id: Optional[str] = None,
     fixtures: Optional[List[Fixture]] = None,
 ) -> Fixture:
     """Resolve input from multiple possible sources.
@@ -79,8 +81,8 @@ def resolve_input(
 
     Args:
         pipeline_fn: The pipeline function to run
-        fixture_id: Fixture identifier
         input: --input value (may include @file/@- syntax)
+        fixture_id: Fixture identifier
         fixtures: List of available fixtures
 
     Returns:
@@ -101,7 +103,7 @@ def resolve_input(
         )
 
     # Resolve fixture
-    if fixture_id is not None:
+    if fixtures and fixture_id:
         for f in fixtures:
             if f.id == fixture_id:
                 return f
@@ -111,8 +113,8 @@ def resolve_input(
 
     # Resolve --input (with path/- support)
     if input is not None:
-        sig = inspect.signature(pipeline_fn)
-        params = [
+        sig: Signature = inspect.signature(pipeline_fn)
+        params: List[Parameter] = [
             p
             for p in sig.parameters.values()
             if p.kind
@@ -120,7 +122,7 @@ def resolve_input(
         ]
 
         if input == "-":
-            params_data = {}
+            params_data: Dict[str, Any] = {}
             for param in params:
                 params_data[param.name] = Prompt.ask(f"[blue]Enter[/] {param.name}")
             return Fixture(
@@ -131,14 +133,14 @@ def resolve_input(
             if input.startswith("file://"):
                 file_input = True
                 # Read from file
-                path = Path(input.split("file://")[1])
+                path: Path = Path(input.split("file://")[1])
                 if not path.exists():
                     raise InputResolutionError(f"File not found: {input}")
                 input = path.read_text()
 
-            if _should_parse_as_structured(input):
+            if _should_parse_as_structured(content=input):
                 try:
-                    parsed, input_type = _parse_structured_input(input)
+                    parsed, input_type = _parse_structured_input(content=input)
                     LOGGER.info("Interpreting input as structured (JSON/YAML object)")
                     return Fixture(
                         id=input_type if not file_input else input_type + "_file",
@@ -148,13 +150,13 @@ def resolve_input(
                 except InputResolutionError as e:
                     # Fall through to raw string handling
                     LOGGER.debug(
-                        f"Failed to parse as structured: {e}. Going to Process as raw input."
+                        f"Failed to parse as structured: {str(e)}. Going to Process as raw input."
                     )
 
             # Raw scalar input
             if len(params) == 1:
                 # Single-parameter skill - bind raw string directly
-                param_name = params[0].name
+                param_name: str = params[0].name
                 LOGGER.info(f"Binding raw string to single parameter '{param_name}'")
                 return Fixture(
                     id="raw_input",
@@ -163,7 +165,7 @@ def resolve_input(
                 )
             else:
                 # Multi-parameter skill - cannot infer mapping
-                param_names = [p.name for p in params]
+                param_names: List[str] = [p.name for p in params]
                 raise InputResolutionError(
                     f"Skill '{pipeline_fn.__name__}' takes multiple parameters ({', '.join(param_names)}). "
                     f"Pass structured JSON/YAML input or use --arg flags (not yet implemented)."
