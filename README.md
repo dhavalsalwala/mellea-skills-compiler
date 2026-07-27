@@ -163,8 +163,11 @@ Begin operation by using the Mellea Skills Compiler Node.js Interactive CLI or s
 Compile a skill into a typed Mellea pipeline via the CLI:
 
 ```bash
-mellea-skills compile <Your-local-path>/skills/weather/spec.md  # if skill is a single spec file.
-mellea-skills compile <Your-local-path>/skills/weather          # if skill is a directory containing spec files
+# if skill is a single spec file.
+mellea-skills compile <Your-local-path>/skills/weather/spec.md
+
+# if skill is a directory containing spec files
+mellea-skills compile <Your-local-path>/skills/weather
 ```
 
 Compile uses Sonnet as the default claude model. To use different claude model,
@@ -176,8 +179,11 @@ mellea-skills compile <Your-local-path>/skills/weather --model aws/claude-opus-4
 
 The `--backend` flag allows you to specify which compilation backend to use (currently only `claude` is supported):
 ```bash
-mellea-skills compile <Your-local-path>/skills/weather/spec.md --backend claude  # Explicit backend selection
-mellea-skills compile <Your-local-path>/skills/weather/spec.md                   # Uses 'claude' by default
+# Explicit backend selection
+mellea-skills compile <Your-local-path>/skills/weather/spec.md --backend claude
+
+# Uses 'claude' by default
+mellea-skills compile <Your-local-path>/skills/weather/spec.md
 ```
 
 Melleafy Repair: Identify and correct any errors effectively in Mellea skill compilation
@@ -201,12 +207,23 @@ See [`mellea-fy/README.md`](https://github.com/generative-computing/mellea-skill
 Run skill pipeline for a given fxiture
 
 ```bash
-mellea-skills run <Your-local-path>/weather/weather_mellea --input "Whats the weather like in Dublin?" # provide a raw string as an input
-mellea-skills run <Your-local-path>/weather/weather_mellea --input file://<Your-local-path>/input.json  # provide a JSON file as an input
-mellea-skills run <Your-local-path>/weather/weather_mellea --input -  # provide input as stdin for each required parameters
-mellea-skills run <Your-local-path>/weather/weather_mellea --fixture rain_check   # provide a fixture name as an input
-mellea-skills run <Your-local-path>/weather/weather_mellea --enforce              # Block execution when Guardian detects risks (default: audit-only)
-mellea-skills run <Your-local-path>/weather/weather_mellea --no-guardian          # Skip Guardian checks even if a policy manifest exists.
+# provide a raw string as an input
+mellea-skills run <Your-local-path>/weather/weather_mellea --input "Whats the weather like in Dublin?"
+
+# provide a JSON file as an input
+mellea-skills run <Your-local-path>/weather/weather_mellea --input file://<Your-local-path>/input.json
+
+# provide input as stdin for each required parameters
+mellea-skills run <Your-local-path>/weather/weather_mellea --input -
+
+# provide a fixture name as an input
+mellea-skills run <Your-local-path>/weather/weather_mellea --fixture rain_check
+
+ # Block execution when Guardian detects risks (default: audit-only)
+mellea-skills run <Your-local-path>/weather/weather_mellea --enforce
+
+# Skip Guardian checks even if a policy manifest exists.
+mellea-skills run <Your-local-path>/weather/weather_mellea --no-guardian
 ```
 
 #### Input Format Examples
@@ -272,11 +289,20 @@ Run end-to-end certification — risk identification via AI Atlas Nexus, Guardia
 Pass `--inference-engine ollama` for Ollama or `--inference-engine vllm` for vLLM inference service.
 
 ```bash
-mellea-skills certify examples/weather/weather_mellea                      # provide path to the compiled skill directory
-mellea-skills certify examples/weather/weather_mellea --enforce            # Block on risk detection
-mellea-skills certify examples/weather/weather_mellea --fixture rain_check # Run specific fixture - rain_check
-mellea-skills certify examples/weather/weather_mellea --risk-model granite4.1:3b --guardian-model ibm/granite3.3-guardian:8b --inference-engine ollama    # Using Ollama risk model, guardian model and inference engine
-mellea-skills certify examples/weather/weather_mellea --risk-model ibm-granite/granite-4.1-3b --guardian-model ibm-granite/granite-guardian-3.3-8b --inference-engine vllm    # Using vLLM risk model, guardian model and inference engine
+# Provide path to the compiled skill directory. Uses default parameters.
+mellea-skills certify examples/weather/weather_mellea
+
+# Block on risk detection
+mellea-skills certify examples/weather/weather_mellea --enforce
+
+# Number of fixtures to evaluate for pipeline certification. Default is 3.
+mellea-skills certify examples/weather/weather_mellea --n_fixtures 4
+
+# Using Ollama risk model, guardian model and inference engine
+mellea-skills certify examples/weather/weather_mellea --risk-model granite4.1:3b --guardian-model ibm/granite3.3-guardian:8b --inference-engine ollama
+
+# Using vLLM risk model, guardian model and inference engine
+mellea-skills certify examples/weather/weather_mellea --risk-model ibm-granite/granite-4.1-3b --guardian-model ibm-granite/granite-guardian-3.3-8b --inference-engine vllm
 ```
 
 ### Export Compiled Mellea Skill
@@ -286,8 +312,11 @@ Export a compiled Mellea skill to a deployment target - langgraph, claude-code, 
 **Note**: This command is experimental. Output structure and CLI interface may change in future releases without a deprecation period.
 
 ```bash
-mellea-skills export --target mcp <Your-local-path>/skills/weather/weather_mellea         # Supported deployment target: mcp, langgraph, claude-code
-mellea-skills export --target mcp --force <Your-local-path>/skills/weather/weather_mellea # '--force' overwrites output directory if it already exists.
+# Supported deployment target: mcp, langgraph, claude-code
+mellea-skills export --target mcp <Your-local-path>/skills/weather/weather_mellea
+
+# '--force' overwrites output directory if it already exists.
+mellea-skills export --target mcp --force <Your-local-path>/skills/weather/weather_mellea
 ```
 
 ### Certification artifacts
