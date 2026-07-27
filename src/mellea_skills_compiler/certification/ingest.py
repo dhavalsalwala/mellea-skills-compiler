@@ -24,6 +24,7 @@ from mellea_skills_compiler.certification.data import get_data_path
 from mellea_skills_compiler.certification.report import generate_certification_report
 from mellea_skills_compiler.enums import InferenceEngineType
 from mellea_skills_compiler.inference import InferenceService
+from mellea_skills_compiler.models import ComplianceSummary, PolicyManifest
 from mellea_skills_compiler.toolkit.file_utils import parse_spec_file
 from mellea_skills_compiler.toolkit.logging import configure_logger
 
@@ -107,28 +108,28 @@ def ingest_one(
     audit_dir = (
         spec_path.parent
         / "audit"
-        / f"{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}"
+        / datetime.now().strftime('%d-%m-%Y_%H-%M-%S')
     )
     audit_dir.mkdir(parents=True, exist_ok=True)
 
     # Genereate policy manifest
-    manifest = policy.generate_policy_manifest(
+    manifest: PolicyManifest = policy.generate_policy_manifest(
         use_case, nexus, inference_engine=InferenceService.risk_engine(risk_model, inference_engine_type)
     )
-    manifest_path = audit_dir / "policy_manifest.json"
-    manifest.to_json(manifest_path)
+    manifest_path: Path = audit_dir / "policy_manifest.json"
+    manifest.to_json(path=manifest_path)
 
     # Generate policy markdown
     policy_md = policy.generate_policy_markdown(manifest)
-    policy_path = audit_dir / "POLICY.md"
-    policy_path.write_text(policy_md)
+    policy_path: Path = audit_dir / "POLICY.md"
+    policy_path.write_text(data=policy_md)
 
     LOGGER.info("Policy manifest: %s", manifest_path)
     LOGGER.info("Policy document: %s", policy_path)
 
     # ── Step 5: Compliance classification ───────────────────────────
     LOGGER.info("Step 5: Compliance classification...")
-    compliance = classify_governance_requirements(manifest, nexus)
+    compliance: ComplianceSummary = classify_governance_requirements(manifest, nexus)
     counts = compliance.counts
     LOGGER.info(
         "  AUTOMATED=%d  PARTIAL=%d  MANUAL=%d  (total=%d)",
