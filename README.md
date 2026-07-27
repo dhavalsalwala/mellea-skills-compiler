@@ -112,14 +112,14 @@ pip install -e .
 For Ollama, set API URL in the environment variables:
 
 ```bash
-export OLLAMA_API_URL=<api-url> # e.g. http://localhost:11434
+export OLLAMA_API_URL=http://localhost:11434 # Ollama api URL
 ```
 
 For online vLLM, set API URL and API KEY(optionally) in the environment variables:
 
 ```bash
-export VLLM_API_URL_RISK_MODEL=<api-url> # api url of hosted risk model e.g. http://localhost:8000
-export VLLM_API_URL_GUARDIAN_MODEL=<api-url> # api url of hosted guardian model e.g. http://localhost:8001
+export VLLM_API_URL_RISK_MODEL=http://localhost:8000 # api url of hosted risk model
+export VLLM_API_URL_GUARDIAN_MODEL=http://localhost:8001 # api url of hosted guardian model
 ```
 
 For offline vLLM, there is no need to set API URL and API KEY in the environment variables.
@@ -269,11 +269,14 @@ mellea-skills run skills/weather/weather_mellea --fixture current_weather_city
 
 Run end-to-end certification — risk identification via AI Atlas Nexus, Guardian hook instrumentation, fixture execution, and compliance report — in a single command:
 
+Pass `--inference-engine ollama` for Ollama or `--inference-engine vllm` for vLLM inference service.
+
 ```bash
-mellea-skills certify <Your-local-path>/skills/weather/weather_mellea                      # provide path to the compiled skill directory
-mellea-skills certify <Your-local-path>/skills/weather/weather_mellea --enforce            # Block on risk detection
-mellea-skills certify <Your-local-path>/skills/weather/weather_mellea --fixture rain_check # Run specific fixture - rain_check
-mellea-skills certify <Your-local-path>/skills/weather/weather_mellea --risk-model granite4.1:3b --guardian-model ibm/granite3.3-guardian:8b --inference-engine ollama    # Using different risk model, guardian model and inference engine
+mellea-skills certify examples/weather/weather_mellea                      # provide path to the compiled skill directory
+mellea-skills certify examples/weather/weather_mellea --enforce            # Block on risk detection
+mellea-skills certify examples/weather/weather_mellea --fixture rain_check # Run specific fixture - rain_check
+mellea-skills certify examples/weather/weather_mellea --risk-model granite4.1:3b --guardian-model ibm/granite3.3-guardian:8b --inference-engine ollama    # Using Ollama risk model, guardian model and inference engine
+mellea-skills certify examples/weather/weather_mellea --risk-model ibm-granite/granite-4.1-3b --guardian-model ibm-granite/granite-guardian-3.3-8b --inference-engine vllm    # Using vLLM risk model, guardian model and inference engine
 ```
 
 ### Export Compiled Mellea Skill
