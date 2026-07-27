@@ -73,14 +73,13 @@ LOGGER: Logger = configure_logger()
 def _dump_fixture_results(
     results_path: Path, fixture_results: List[FixtureResult]
 ) -> None:
-    if fixture_results:
-        with open(results_path, "w", encoding="utf-8") as result_file:
-            json.dump(
-                TypeAdapter(List[FixtureResult]).dump_python(fixture_results),
-                result_file,
-                indent=4,
-                default=str,
-            )
+    with open(results_path, "w", encoding="utf-8") as result_file:
+        json.dump(
+            TypeAdapter(List[FixtureResult]).dump_python(fixture_results),
+            result_file,
+            indent=4,
+            default=str,
+        )
 
 
 def _run_single_fixture(pipeline_fn: Callable, fixture: Fixture):
@@ -139,7 +138,7 @@ def run_pipeline(
         run_dir = (
             pipeline_dir.parent
             / "runs"
-            / f"{datetime.now().strftime(format="%d-%m-%Y_%H-%M-%S")}"
+            / datetime.now().strftime(format="%d-%m-%Y_%H-%M-%S")
         )
         run_dir.mkdir(parents=True, exist_ok=True)
 
@@ -157,7 +156,7 @@ def run_pipeline(
 
             try:
                 if not manifest_path:
-                    raise Exception(
+                    raise FileNotFoundError(
                         f"Unable to find audit directory with a manifest file in {pipeline_dir.parent}."
                     )
                 else:
@@ -166,7 +165,7 @@ def run_pipeline(
 
                     # Configure plugins from manifest
                     LOGGER.info(
-                        f"Configuring Guardian hooks from Policy Manifest...",
+                        "Configuring Guardian hooks from Policy Manifest...",
                     )
                     guardian_plugin = GuardianPluginFactory.create(
                         guardian_mode,
@@ -274,7 +273,7 @@ def full_pipeline(
         audit_dir = (
             pipeline_dir.parent
             / "audit"
-            / f"{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}"
+            / datetime.now().strftime('%d-%m-%Y_%H-%M-%S')
         )
         audit_dir.mkdir(parents=True, exist_ok=True)
 
@@ -324,7 +323,7 @@ def full_pipeline(
 
         # ── Compose use-case description ────────────────────────
         print()
-        LOGGER.info(f"Generating Use-case")
+        LOGGER.info("Generating Use-case")
         use_case = skill_to_use_case(parsed, sensitivity)
         LOGGER.info(f"  Description: {use_case}")
 
@@ -353,7 +352,7 @@ def full_pipeline(
         # ── Step 3: Configure plugins from manifest ───────────────────────
         print()
         LOGGER.info(
-            f"Configuring Guardian hooks from Policy Manifest...",
+            "Configuring Guardian hooks from Policy Manifest...",
         )
         guardian_plugin = GuardianPluginFactory.create(
             guardian_mode,
@@ -402,7 +401,7 @@ def full_pipeline(
 
                 LOGGER.info(f"✓ Executed {len(sample_fixtures)} fixture(s)")
         except Exception as e:
-            raise Exception(f"✗ Fixtures execution failed with error: {str(e)}")
+            raise RuntimeError(f"✗ Fixtures execution failed with error: {str(e)}") from e
 
         # Write fixture results if available
         if fixture_results:
@@ -416,16 +415,10 @@ def full_pipeline(
             LOGGER.info("=" * 70)
             LOGGER.info("Total: %d", len(fixture_results))
 
-            LOGGER.info(
-                "Passed: %d", len([f for f in fixture_results if f.status == "success"])
-            )
-            LOGGER.info(
-                "Blocked (Risk detected): %d",
-                len([f for f in fixture_results if f.status == "blocked"]),
-            )
-            LOGGER.info(
-                "Failed: %d", len([f for f in fixture_results if f.status == "failed"])
-            )
+            status_counts: Counter[str] = Counter(f.status for f in fixture_results)
+            LOGGER.info(f"Passed: {status_counts["success"]}")
+            LOGGER.info(f"Blocked (Risk detected): {status_counts["blocked"]}")
+            LOGGER.info(f"Failed: {status_counts["failed"]}")
             LOGGER.info(f"Fixture Results: {fixture_results_path}")
 
         # ── Step 5: Guardian verdict summary ──────────────────────────────
