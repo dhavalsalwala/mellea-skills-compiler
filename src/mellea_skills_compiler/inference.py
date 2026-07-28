@@ -58,11 +58,12 @@ class InferenceService:
             raise ValueError(f"Invalid inference engine: {self.inference_engine_type}")
 
     @property
-    def credentials(self) -> Dict[str, Any]:
+    def credentials(self) -> Optional[Dict[str, Any]]:
         if self.inference_engine_type == InferenceEngineType.OLLAMA:
             return {"api_url": OLLAMA_API_URL}
         elif self.inference_engine_type == InferenceEngineType.VLLM:
-            return {"api_url": VLLM_API_URL_RISK_MODEL if len(INFERENCE_ENGINE_CACHE) == 0 else VLLM_API_URL_GUARDIAN_MODEL, "api_key": VLLM_API_KEY}
+            api_url: Optional[str] = VLLM_API_URL_RISK_MODEL if len(INFERENCE_ENGINE_CACHE) == 0 else VLLM_API_URL_GUARDIAN_MODEL
+            return {"api_url": api_url, "api_key": VLLM_API_KEY} if api_url else None
         else:
             raise ValueError(f"Invalid inference engine: {self.inference_engine_type}")
 
