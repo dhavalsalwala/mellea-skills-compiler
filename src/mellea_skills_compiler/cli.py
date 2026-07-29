@@ -223,6 +223,21 @@ def run(
             help="Skip Guardian checks even if a policy manifest exists.",
         ),
     ] = False,
+    guardian_model: Annotated[
+        Optional[str],
+        typer.Option(
+            "--guardian-model",
+            help="Model to use for Risk Assessment. The `--inference-engine` option must support the model. If set to None, the default guardian model for the inference engine will be used.",
+        ),
+    ] = None,
+    inference_engine: Annotated[
+        Literal["ollama", "vllm"],
+        typer.Option(
+            "--inference-engine",
+            callback=lambda x: x.upper(),
+            help="Service to use for LLM inference. Supported: ollama",
+        ),
+    ] = "ollama",
 ) -> None:
     """
     Run Mellea Skill Pipeline.
@@ -242,6 +257,8 @@ def run(
             ),
             fixture_id=fixture_id,
             input=input,
+            guardian_model=guardian_model,
+            inference_engine_type=InferenceEngineType[inference_engine],
         )
     except Exception as e:
         LOGGER.error(f"Pipeline run command failed - {str(e)}")
@@ -344,7 +361,6 @@ def certify(
         Literal["ollama", "vllm"],
         typer.Option(
             "--inference-engine",
-            "-i",
             callback=lambda x: x.upper(),
             help="Service to use for LLM inference. Supported: ollama",
         ),

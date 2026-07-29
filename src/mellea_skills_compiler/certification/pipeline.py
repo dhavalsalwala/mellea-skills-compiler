@@ -101,6 +101,8 @@ def run_pipeline(
     guardian_mode: GuardianMode,
     fixture_id: Optional[str] = None,
     input: Optional[str] = None,
+    guardian_model: Optional[str] = None,
+    inference_engine_type: InferenceEngineType = InferenceEngineType.OLLAMA,
 ) -> RunResult:
     """Full Certification Pipeline for Mellea skill
 
@@ -109,6 +111,8 @@ def run_pipeline(
         guardian_mode (GuardianMode): Run pipeline in enforce mode (block on risk detection), audit mode or with guardian assessment disabled.
         fixture_id (str, optional): fixture_id to run through the Mellea pipeline. If None, uses input parameter.
         input (str, optional): input specification to run through the Mellea pipeline. Supports five input types.
+        guardian_model (Optional[str], optional): Model to use for Risk Assessment. The `inference_engine` param must support the model. If set to None, the default guardian model for the inference engine will be used.
+        inference_engine_type (InferenceEngineType, optional): Service to use for LLM inference. Defaults to InferenceEngineType.OLLAMA.
 
     Returns:
         RunResult: Result object containing run directory, input parameters, guardian verdicts, and status.
@@ -170,7 +174,7 @@ def run_pipeline(
                     guardian_plugin = GuardianPluginFactory.create(
                         guardian_mode,
                         manifest.risks,
-                        InferenceService.guardian_engine(),
+                        InferenceService.guardian_engine(guardian_model, inference_engine_type),
                     )
                     guardian_plugin.register()
                     audit_plugin = AuditTrailPlugin(
