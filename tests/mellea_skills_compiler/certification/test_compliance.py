@@ -67,9 +67,9 @@ class TestComplianceSummary:
         action3 = GovernanceAction("A-3", "Test3", "Desc3", "test")
 
         classifications = [
-            RequirementClassification(action1, CoverageLevel.AUTOMATED, "Automated"),
-            RequirementClassification(action2, CoverageLevel.PARTIAL, "Partial"),
-            RequirementClassification(action3, CoverageLevel.AUTOMATED, "Automated"),
+            RequirementClassification(action1, CoverageLevel.AUTOMATED, ["Automated"]),
+            RequirementClassification(action2, CoverageLevel.PARTIAL, ["Partial"]),
+            RequirementClassification(action3, CoverageLevel.AUTOMATED, ["Automated"]),
         ]
 
         summary = ComplianceSummary(classifications)
@@ -84,8 +84,8 @@ class TestComplianceSummary:
         action2 = GovernanceAction("A-2", "Test2", "Desc2", "test")
 
         classifications = [
-            RequirementClassification(action1, CoverageLevel.AUTOMATED, "Automated"),
-            RequirementClassification(action2, CoverageLevel.PARTIAL, "Partial"),
+            RequirementClassification(action1, CoverageLevel.AUTOMATED, ["Automated"]),
+            RequirementClassification(action2, CoverageLevel.PARTIAL, ["Partial"]),
         ]
 
         summary = ComplianceSummary(classifications)
@@ -100,8 +100,8 @@ class TestComplianceSummary:
         action2 = GovernanceAction("A-2", "Test2", "Desc2", "test")
 
         classifications = [
-            RequirementClassification(action1, CoverageLevel.MANUAL, "Manual"),
-            RequirementClassification(action2, CoverageLevel.PARTIAL, "Partial"),
+            RequirementClassification(action1, CoverageLevel.MANUAL, ["Manual"]),
+            RequirementClassification(action2, CoverageLevel.PARTIAL, ["Partial"]),
         ]
 
         summary = ComplianceSummary(classifications)
@@ -118,10 +118,10 @@ class TestComplianceSummary:
         action4 = GovernanceAction("A-4", "Test4", "Desc4", "test")
 
         classifications = [
-            RequirementClassification(action1, CoverageLevel.AUTOMATED, "Auto"),
-            RequirementClassification(action2, CoverageLevel.AUTOMATED, "Auto"),
-            RequirementClassification(action3, CoverageLevel.PARTIAL, "Partial"),
-            RequirementClassification(action4, CoverageLevel.MANUAL, "Manual"),
+            RequirementClassification(action1, CoverageLevel.AUTOMATED, ["Auto"]),
+            RequirementClassification(action2, CoverageLevel.AUTOMATED, ["Auto"]),
+            RequirementClassification(action3, CoverageLevel.PARTIAL, ["Partial"]),
+            RequirementClassification(action4, CoverageLevel.MANUAL, ["Manual"]),
         ]
 
         summary = ComplianceSummary(classifications)

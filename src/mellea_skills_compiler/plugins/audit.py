@@ -22,10 +22,7 @@ from mellea.plugins import HookType, Plugin, PluginMode, hook
 
 from mellea_skills_compiler.enums import GuardianScore
 from mellea_skills_compiler.plugins import BasePlugin
-from mellea_skills_compiler.plugins.guardian import (
-    GuardianAuditPlugin,
-    GuardianEnforcePlugin,
-)
+from mellea_skills_compiler.plugins.guardian import GuardianPlugin
 from mellea_skills_compiler.toolkit.logging import configure_logger
 
 
@@ -49,15 +46,14 @@ class AuditTrailPlugin(
     def __init__(
         self,
         log_path: Path,
-        guardian_plugin: Optional[
-            Union[
-                GuardianAuditPlugin,
-                GuardianEnforcePlugin,
-            ]
-        ] = None,
+        guardian_plugin: Optional[GuardianPlugin] = None
     ):
         self.guardian_plugin = guardian_plugin
-        self.policy_id = f"nexus-{guardian_plugin.taxonomy}" if guardian_plugin else ""
+        self.policy_id = (
+            f"nexus-{list(set([risk.taxonomy for risk in guardian_plugin.risks]))}"
+            if guardian_plugin and guardian_plugin.risks
+            else ""
+        )
         self._entries: list[dict] = []
 
         log_path.parent.mkdir(parents=True, exist_ok=True)

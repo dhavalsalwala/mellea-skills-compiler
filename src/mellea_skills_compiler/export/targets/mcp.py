@@ -224,23 +224,28 @@ def _render_server_py(
 
     guardian_block = ""
     if has_policy_manifest:
-        plugin_class = "GuardianEnforcePlugin" if enforce else "GuardianAuditPlugin"
         guardian_block = (
             "from pathlib import Path\n"
             "from mellea_skills_compiler.models import PolicyManifest\n"
-            f"from mellea_skills_compiler.plugins.guardian import {plugin_class}\n"
+            "from mellea_skills_compiler.plugins.guardian import GuardianPlugin, GuardianPluginFactory\n"
             "from mellea_skills_compiler.plugins.audit import AuditTrailPlugin\n"
+            "from mellea_skills_compiler.inference import InferenceService\n"
+            "from mellea_skills_compiler.enums import GuardianMode\n"
             "\n"
-            '_manifest_path = Path(__file__).parent / "policy_manifest.json"\n'
-            "if _manifest_path.exists():\n"
-            "    _manifest = PolicyManifest.from_json(str(_manifest_path))\n"
-            f"    guardian_plugin = {plugin_class}(_manifest)\n"
+            "manifest_path: Path = Path(__file__).parent / 'policy_manifest.json'\n"
+            "if manifest_path.exists():\n"
+            "    manifest: PolicyManifest = PolicyManifest.from_json(manifest_path)\n"
+            "    guardian_plugin: GuardianPlugin = GuardianPluginFactory.create(\n"
+            f"        GuardianMode.{'ENFORCE' if enforce else 'AUDIT'},\n"
+            "        manifest.risks,\n"
+            "        InferenceService.guardian_engine(),\n"
+            "    )\n"
             "    guardian_plugin.register()\n"
-            '    _audit_log = Path(__file__).parent / "audit" / "runtime_audit.jsonl"\n'
-            "    _audit_dir = _audit_log.parent\n"
+            '    _audit_log: Path = Path(__file__).parent / "audit" / "runtime_audit.jsonl"\n'
+            "    _audit_dir: Path = _audit_log.parent\n"
             "    try:\n"
             "        _audit_dir.mkdir(parents=True, exist_ok=True)\n"
-            "        _probe = _audit_dir / '.write_probe'\n"
+            "        _probe: Path = _audit_dir / '.write_probe'\n"
             "        _probe.touch()\n"
             "        _probe.unlink()\n"
             "    except OSError as _e:\n"

@@ -1,12 +1,17 @@
-import json
-import logging
-from collections import Counter
-from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime
-from typing import Any, Dict, List, Optional, Union
-from typing import Any
+from __future__ import annotations
 
-from mellea_skills_compiler.enums import CoverageLevel, GovernanceTaxonomy, GuardianMode
+import json
+from collections import Counter
+from dataclasses import asdict, field
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any, Dict, List, Literal, Optional, Union
+
+from mellea.plugins import PluginViolationError
+from pydantic import TypeAdapter
+from pydantic.dataclasses import dataclass
+
+from mellea_skills_compiler.enums import CoverageLevel, GovernanceTaxonomy, HookStage
 from mellea_skills_compiler.toolkit.logging import configure_logger
 
 
@@ -44,7 +49,7 @@ class GovernanceAction:
     source: str  # e.g. "nist-ai-rmf", "credo-ucf"
     category: str = ""  # e.g. "Govern", "Map", "Measure", "Manage"
     via_risk: str = ""  # the risk that linked to this action
-    categorized_as: str | list[str] = ""
+    categorized_as: Optional[Union[str, List[str]]] = None
 
 
 @dataclass
@@ -75,7 +80,7 @@ class PolicyManifest:
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
-    def to_json(self, path: str | None = None) -> str:
+    def to_json(self, path: Optional[Path] = None) -> str:
         data = json.dumps(self.to_dict(), indent=2)
         if path:
             with open(path, "w") as f:
@@ -83,13 +88,13 @@ class PolicyManifest:
         return data
 
     @classmethod
-    def from_json(cls, path: str) -> "PolicyManifest":
+    def from_json(cls, path: Path) -> PolicyManifest:
         """Load a PolicyManifest from a JSON file produced by to_json()."""
-        with open(path) as f:
-            data = json.load(f)
-        risks = [NexusRisk(**r) for r in data.get("risks", [])]
-        additional_risks = [NexusRisk(**r) for r in data.get("additional_risks", [])]
-        governance_actions = [
+        with open(file=path) as f:
+            data = json.load(fp=f)
+        risks: List[NexusRisk] = [NexusRisk(**r) for r in data.get("risks", [])]
+        additional_risks: List[NexusRisk] = [NexusRisk(**r) for r in data.get("additional_risks", [])]
+        governance_actions: List[GovernanceAction] = [
             GovernanceAction(**a) for a in data.get("governance_actions", [])
         ]
         return cls(
@@ -146,16 +151,94 @@ class GuardianVerdict:
     risk: str
     label: str  # "Yes" (risk detected), "No" (safe), "Failed", "Error"
     raw_output: str
+    hook_stage: HookStage
     timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 @dataclass
-class RunResult:
-    guardian_mode: GuardianMode
-    guardian_verdict: Dict[str, List[GuardianVerdict]]
-    fixture_summary: Dict[str, Any]
-    audit_summary: Dict[str, Any]
-    guardian_audit_dir: Optional[str] = None
+class Fixture:
+    id: str
+    context: Dict[str, Any]
+    description: str
 
-    def dump(self):
-        return asdict(self)
+
+@dataclass
+class FixtureResult:
+    status: Literal["success", "failed", "blocked"]
+    fixture: Fixture
+    output: Optional[Any] = None
+    error_details: Optional[Dict[str, Any]] = None
+
+    @classmethod
+    def success(cls, fixture: Fixture, output: Any):
+        return cls(status="success", fixture=fixture, output=output)
+
+    @classmethod
+    def blocked(cls, fixture: Fixture, e: PluginViolationError):
+        LOGGER.warning(
+            f"Fixture[{fixture.id}] - Pipeline BLOCKED by Guardian enforcement. {e.reason}"
+        )
+        return cls(
+            status="blocked",
+            fixture=fixture,
+            error_details={
+                "hook_type": e.hook_type,
+                "code": e.code,
+                "reason": e.reason,
+                "plugin_name": e.plugin_name,
+            },
+        )
+
+    @classmethod
+    def failed(cls, fixture: Fixture, e: Exception):
+        LOGGER.error(f"Fixture[{fixture.id}] execution failed. {str(e)}")
+        return cls(
+            status="failed",
+            fixture=fixture,
+            error_details={
+                "type": type(e).__name__,
+                "message": str(e),
+            },
+        )
+
+
+@dataclass
+class RunResult:
+    status: Literal["success", "failed"]
+    input_parameters: Dict[str, Any]
+    run_dir: Optional[Path] = None
+    artifact_paths: Dict[str, Path] = field(default_factory=dict)
+    guardian_verdicts: Optional[Dict[str, List[GuardianVerdict]]] = None
+    error_details: Optional[Dict[str, Any]] = None
+
+    def __post_init__(self):
+
+        # Collect artifact paths by traversing the run directory
+        if self.run_dir and self.run_dir.exists():
+            for file_path in self.run_dir.iterdir():
+                if file_path.is_file():
+                    # Use file stem (name without extension) as key
+                    self.artifact_paths[file_path.stem.replace("_", " ").title()] = (
+                        file_path
+                    )
+
+            # Write RunResult to the JSON file
+            run_result_path = self.run_dir / "run_result.json"
+            with open(run_result_path, "w", encoding="utf-8") as run_result_file:
+                json.dump(
+                    TypeAdapter(RunResult).dump_python(self),
+                    run_result_file,
+                    indent=4,
+                    default=str,
+                )
+
+            print()
+            LOGGER.info(f"Run result written to {run_result_path}")
+
+    @classmethod
+    def failed(cls, **kwargs):
+        return cls(status="failed", **kwargs)
+
+    @classmethod
+    def success(cls, **kwargs):
+        return cls(status="success", **kwargs)

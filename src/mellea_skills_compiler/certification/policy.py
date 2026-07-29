@@ -1,25 +1,22 @@
 """AI Atlas Nexus policy generation for Mellea Skills Compiler."""
 
-from __future__ import annotations
-
 from collections import defaultdict
+from logging import Logger
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from mellea_skills_compiler.enums import (
     GovernanceTaxonomy,
-    InferenceEngineType,
     NexusRiskSource,
 )
-from mellea_skills_compiler.inference import InferenceService
 from mellea_skills_compiler.models import GovernanceAction, NexusRisk, PolicyManifest
 from mellea_skills_compiler.toolkit.logging import configure_logger
 
 
-LOGGER = configure_logger()
+LOGGER: Logger = configure_logger()
 
 
-def _get_fail_safe_risks():
+def _get_fail_safe_risks() -> List[NexusRisk]:
     return [
         NexusRisk(
             name=risk,
@@ -40,8 +37,7 @@ def _get_fail_safe_risks():
 def generate_policy_manifest(
     use_case: str,
     nexus,
-    model: Optional[str] = None,
-    inference_engine: InferenceEngineType = InferenceEngineType.OLLAMA,
+    inference_engine,
     governance_taxonomies: Optional[List[str]] = None,
 ) -> PolicyManifest:
     """Identify applicable risks and governance actions to produce a multi-taxonomy policy manifest.
@@ -49,8 +45,7 @@ def generate_policy_manifest(
     Args:
         use_case (str): Natural language description of the agent's purpose.
         nexus (AIAtlasNexus): AI Atlas Nexus instance.
-        model (Optional[str], optional): Model to use for Risk and Action Identification. The `inference_engine` param must support the model. If set to None, the default model for the inference engine will be used.
-        inference_engine (InferenceEngineType, optional): Service to use for LLM inference. Defaults to InferenceEngineType.OLLAMA.
+        inference_engine (InferenceEngine): Service to use for LLM inference. Defaults to InferenceEngineType.OLLAMA.
         governance_taxonomies: List of taxonomy IDs for governance actions.
     Returns:
         PolicyManifest with Guardian risks and governance actions.
@@ -59,14 +54,9 @@ def generate_policy_manifest(
     if not governance_taxonomies:
         governance_taxonomies = GovernanceTaxonomy.list()
 
-    # Create Inference engine instance
-    risk_inference_engine = InferenceService(inference_engine).risk(
-        model, parameters={"temperature": 0}
-    )
-
     risk_lists = nexus.identify_risks_and_actions_from_usecases(
         [use_case],
-        risk_inference_engine,
+        inference_engine,
         taxonomy=governance_taxonomies,
         zero_shot_only=True,
     )
@@ -74,8 +64,8 @@ def generate_policy_manifest(
     identified_risks = risk_lists.get("risks", [])
     LOGGER.info(f"AI Atlas Nexus risks: {len(identified_risks)}")
 
-    risks = []
-    additional_risks = []
+    risks: list[NexusRisk] = []
+    additional_risks: list[NexusRisk] = []
 
     for risk in identified_risks:
         description = guardian_prompt = getattr(risk, "description", "").strip()
@@ -83,7 +73,7 @@ def generate_policy_manifest(
         # sort the risks, granite guardian and other
         if risk.isDefinedByTaxonomy == GovernanceTaxonomy.IBM_GRANITE_GUARDIAN:
             guardian_prompt = risk.tag if risk.tag else guardian_prompt
-            is_native = True if risk.tag else False
+            is_native: bool = True if risk.tag else False
             risks.append(
                 NexusRisk(
                     name=risk.name,
@@ -144,7 +134,7 @@ def generate_policy_manifest(
         additional_risks=additional_risks,
         governance_actions=governance_actions,
         governance_taxonomies=governance_taxonomies,
-        model=risk_inference_engine.model_name_or_path,
+        model=inference_engine.model_name_or_path,
     )
 
 
@@ -196,13 +186,13 @@ def generate_policy_markdown(manifest: PolicyManifest) -> str:
         )
 
     # ── Section 2: Governance actions (per taxonomy) ────────────────
+    section_num = 2
     if manifest.governance_actions:
         # Group actions by source taxonomy
         by_source: dict[str, list[GovernanceAction]] = defaultdict(list)
         for action in manifest.governance_actions:
             by_source[action.source].append(action)
 
-        section_num = 2
         for source, actions in by_source.items():
             lines.extend(
                 [
@@ -291,10 +281,10 @@ def load_policy_manifest(manifest_path: Path) -> PolicyManifest:
     """
     if manifest_path.is_file():
         try:
-            return PolicyManifest.from_json(str(manifest_path))
+            return PolicyManifest.from_json(path=manifest_path)
         except Exception as e:
             raise Exception(
                 f"Failed to load policy manifest from {manifest_path}: {str(e)}",
             )
 
-    raise Exception(f"Policy manifest not available at {manifest_path}.")
+    raise FileNotFoundError(f"Policy manifest not available at {manifest_path}.")

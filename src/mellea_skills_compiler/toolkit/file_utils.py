@@ -9,6 +9,7 @@ from typing import Any, Dict, List
 import yaml
 from rich.console import Console
 
+from mellea_skills_compiler.models import Fixture
 from mellea_skills_compiler.toolkit.logging import configure_logger
 
 
@@ -116,7 +117,7 @@ def load_skill_pipeline(pipeline_dir: Path):
 
 
 # ── Load Fixtures ────────────────────────────────────────────────
-def load_fixtures(pipeline_dir: Path) -> list[dict[str, Any]]:
+def load_fixtures(pipeline_dir: Path) -> List[Fixture]:
     """Load fixtures from the skill's fixtures/ directory.
 
     Supports two conventions:
@@ -145,6 +146,7 @@ def load_fixtures(pipeline_dir: Path) -> list[dict[str, Any]]:
         # Convention 1: FIXTURES list of dicts (e.g., test_fixtures.py)
         if hasattr(mod, "FIXTURES"):
             fixtures = mod.FIXTURES
+            fixtures = [Fixture(**fixture) for fixture in fixtures]
 
         # Convention 2: ALL_FIXTURES list of factory functions (mellea-fy generated)
         if hasattr(mod, "ALL_FIXTURES"):
@@ -152,11 +154,7 @@ def load_fixtures(pipeline_dir: Path) -> list[dict[str, Any]]:
             for factory in mod.ALL_FIXTURES:
                 inputs, fixture_id, description = factory()
                 fixtures.append(
-                    {
-                        "id": fixture_id,
-                        "context": inputs,
-                        "description": description,
-                    }
+                    Fixture(id=fixture_id, context=inputs, description=description)
                 )
     except ImportError:
         raise Exception(

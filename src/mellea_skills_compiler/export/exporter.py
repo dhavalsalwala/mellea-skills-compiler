@@ -194,15 +194,16 @@ def stage2_load(inv: Invocation, manifest: dict) -> LoadedContext:
 
     # Policy manifest (optional) — check the skill dir itself first, then any
     # audit_* sibling directories produced by the certify command.
-    policy_manifest_path = None
+    policy_manifest_path: Optional[Path] = None
     if (skill_root / "policy_manifest.json").exists():
         policy_manifest_path = skill_root / "policy_manifest.json"
     else:
-        audit_dirs = list(skill_root.parent.glob("audit_*"))
-        for audit_dir in reversed(audit_dirs):
-            if (audit_dir / "policy_manifest.json").exists():
-                policy_manifest_path = audit_dir / "policy_manifest.json"
-                break
+        audit_parent: Path = Path(skill_root.parent / "audit")
+        if audit_parent.exists():
+            for audit_dir in reversed(list(audit_parent.glob("*"))):
+                if (audit_dir / "policy_manifest.json").exists():
+                    policy_manifest_path = audit_dir / "policy_manifest.json"
+                    break
 
     return LoadedContext(
         invocation=inv,
@@ -415,9 +416,9 @@ def _build_reverse_manifest(plan: TranslationPlan, loaded: LoadedContext) -> dic
         "warnings": plan.warnings + loaded.load_warnings,
         "policy_manifest_bundled": loaded.policy_manifest_path is not None,
         "guardian_configured": (
-            "enforce" if loaded.policy_manifest_path is not None and loaded.invocation.enforce
-            else "audit" if loaded.policy_manifest_path is not None
-            else False
+            "enforce"
+            if loaded.policy_manifest_path is not None and loaded.invocation.enforce
+            else "audit" if loaded.policy_manifest_path is not None else False
         ),
     }
 
@@ -485,8 +486,8 @@ def _build_export_notes(plan: TranslationPlan, loaded: LoadedContext) -> str:
         mode_note = (
             "**Mode**: enforce — risky operations will be **blocked** at runtime with a `PluginViolationError`. "
             "To switch to audit-only (observe but do not block), re-export without `--enforce`."
-            if loaded.invocation.enforce else
-            "**Mode**: audit — Guardian observes and logs but does not block operations."
+            if loaded.invocation.enforce
+            else "**Mode**: audit — Guardian observes and logs but does not block operations."
         )
         if target == "claude-code":
             audit_path_line = "- **Audit log**: `$ADAPTER_DIR/audit/runtime_audit.jsonl` (defaults to `./audit` if `ADAPTER_DIR` is unset)."
@@ -624,10 +625,10 @@ def stage5_lint(
         entry_file = entry_files.get(target)
         if entry_file and entry_file.exists():
             content = entry_file.read_text()
-            if "GuardianAuditPlugin" not in content and "GuardianEnforcePlugin" not in content:
+            if "GuardianPluginFactory" not in content:
                 failures.append(
                     f"{entry_file.name}: policy_manifest.json present but "
-                    f"no Guardian plugin found in generated entry point"
+                    f"no Guardian plugin factory found in generated entry point"
                 )
 
     pkg_dir = result.out_path / plan.bundled_package_name
