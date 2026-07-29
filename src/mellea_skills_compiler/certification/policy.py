@@ -287,4 +287,4 @@ def load_policy_manifest(manifest_path: Path) -> PolicyManifest:
                 f"Failed to load policy manifest from {manifest_path}: {str(e)}",
             )
 
-    raise Exception(f"Policy manifest not available at {manifest_path}.")
+    raise FileNotFoundError(f"Policy manifest not available at {manifest_path}.")
