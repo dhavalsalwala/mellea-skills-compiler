@@ -117,23 +117,28 @@ pip install -e .
 **Engine Selection**: Specify via `--inference-engine` flag in `certify` and `run` commands. Engines are swappable without recompiling skills—risk identification and Guardian verdicts run on the selected backend transparently.
 
 
-For Ollama, set API URL in the environment variables:
+- For Ollama, set API URL in the environment variables:
 
-```bash
-export OLLAMA_API_URL=http://localhost:11434 # Ollama api URL
-```
+  ```bash
+  export OLLAMA_API_URL=http://localhost:11434 # Ollama api URL
+  ```
 
-For online vLLM, set API URL and API KEY(optionally) in the environment variables:
+- For online vLLM, set API URL and API KEY(optionally) in the environment variables:
 
-```bash
-export VLLM_API_URL_RISK_MODEL=http://localhost:8000 # api url of hosted risk model
-export VLLM_API_URL_GUARDIAN_MODEL=http://localhost:8001 # api url of hosted guardian model
-```
+  ```bash
+  # api url and api key of hosted risk model
+  export VLLM_API_URL_RISK_MODEL=http://localhost:8000
+  export VLLM_API_KEY_RISK_MODEL=YOUR_API_KEY
 
-For offline vLLM, there is no need to set API URL and API KEY in the environment variables. Please install `vllm` using pip when using the offline version.
-```bash
-pip install vllm
-```
+  # api url and api key of hosted guardian model
+  export VLLM_API_URL_GUARDIAN_MODEL=http://localhost:8001
+  export VLLM_API_KEY_GUARDIAN_MODEL=YOUR_API_KEY
+  ```
+
+- For offline vLLM, there is no need to set API URL and API KEY in the environment variables. Please install `vllm` using pip when using the offline service.
+  ```bash
+  pip install vllm
+  ```
 
 ## Quick Start
 
