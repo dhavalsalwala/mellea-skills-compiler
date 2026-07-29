@@ -24,6 +24,11 @@ class InferenceEngineType(Enum):
     def __str__(self) -> Literal['OLLAMA', 'VLLM']:
         return self.name
 
+class InferenceModelType(Enum):
+    """Default model types"""
+
+    RISK_MODEL = auto()
+    GUARDIAN_MODEL = auto()
 
 class InferenceModel(StrEnum):
     """Default model identifiers"""
