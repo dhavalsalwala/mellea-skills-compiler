@@ -130,7 +130,10 @@ export VLLM_API_URL_RISK_MODEL=http://localhost:8000 # api url of hosted risk mo
 export VLLM_API_URL_GUARDIAN_MODEL=http://localhost:8001 # api url of hosted guardian model
 ```
 
-For offline vLLM, there is no need to set API URL and API KEY in the environment variables.
+For offline vLLM, there is no need to set API URL and API KEY in the environment variables. Please install `vllm` using pip when using the offline version.
+```bash
+pip install vllm
+```
 
 ## Quick Start
 
