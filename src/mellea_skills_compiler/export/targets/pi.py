@@ -377,12 +377,10 @@ def _run_sh_conversational_session(
 
 
 # ---------------------------------------------------------------------------
-# SKILL.md, pyproject.toml, README.md, deployment guidance
-#
-# Stubs — implemented in Tasks 3 (SKILL.md) and 4 (pyproject.toml, README.md,
-# deployment guidance). Signatures below must match exactly what translate_pi
-# calls so those tasks can drop in real bodies without touching translate_pi.
+# SKILL.md
 # ---------------------------------------------------------------------------
+
+_MAX_DESCRIPTION_LEN = 1024
 
 
 def _render_skill_md(
@@ -392,7 +390,60 @@ def _render_skill_md(
     modality: str,
     sig: "ParsedSignature",
 ) -> str:
+    description = _get_description(manifest)
+    if len(description) > _MAX_DESCRIPTION_LEN:
+        description = description[:_MAX_DESCRIPTION_LEN]
+    display_name = skill_name.replace("-", " ").title()
+
+    arg_note = _skill_md_arg_note(sig, modality)
+
+    return (
+        f"---\n"
+        f"name: {skill_name}\n"
+        f"description: {description}\n"
+        f'compatibility: "Requires Python >=3.11 and the bundled package installed."\n'
+        f"---\n"
+        f"\n"
+        f"# {display_name}\n"
+        f"\n"
+        f"{description}\n"
+        f"\n"
+        f"## Invocation\n"
+        f"\n"
+        f"This skill is invoked by running `scripts/run.sh`.{arg_note}\n"
+        f"\n"
+        f"## Output format\n"
+        f"\n"
+        f'stdout: `{{"status": "ok", "output": <result>}}`\n'
+        f'stderr on error: `{{"status": "error", "message": <description>}}`\n'
+        f"\n"
+        f"Exit code 0 on success, non-zero on error.\n"
+    )
+
+
+def _skill_md_arg_note(sig: "ParsedSignature", modality: str) -> str:
+    if modality == "conversational_session":
+        return " Pass `--input <text>` and optionally `--session <json-array>` to carry prior turns."
+    if sig.pattern == "no_args":
+        return " No arguments required."
+    if sig.pattern == "single_positional":
+        required = [p for p in sig.params if p["required"]]
+        arg_name = required[0]["name"] if required else sig.params[0]["name"]
+        return f" Pass `{arg_name}` as the first positional argument."
+    required = [p for p in sig.params if p["required"]]
+    if required:
+        args_str = " ".join(f"<{p['name']}>" for p in required)
+        return f" Pass required arguments as positional values: `{args_str}`."
     return ""
+
+
+# ---------------------------------------------------------------------------
+# pyproject.toml, README.md, deployment guidance
+#
+# Stubs — implemented in Task 4 (pyproject.toml, README.md, deployment guidance).
+# Signatures below must match exactly what translate_pi calls so that task
+# can drop in real bodies without touching translate_pi.
+# ---------------------------------------------------------------------------
 
 
 def _render_pyproject_toml(
