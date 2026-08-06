@@ -19,7 +19,7 @@ from packaging.version import Version
 EXPORT_VERSION = "0.1.0"
 MIN_MANIFEST_VERSION = Version("1.0.0")
 
-SUPPORTED_TARGETS = {"langgraph", "claude-code", "mcp"}
+SUPPORTED_TARGETS = {"langgraph", "claude-code", "mcp", "pi"}
 
 
 # ---------------------------------------------------------------------------
@@ -321,6 +321,10 @@ def stage3_translate(loaded: LoadedContext) -> TranslationPlan:
         from mellea_skills_compiler.export.targets.mcp import translate_mcp
 
         plan = translate_mcp(loaded)
+    elif loaded.invocation.target == "pi":
+        from mellea_skills_compiler.export.targets.pi import translate_pi
+
+        plan = translate_pi(loaded)
     else:
         _halt(2, f"No translator for target '{loaded.invocation.target}'")
     plan.has_policy_manifest = loaded.policy_manifest_path is not None
@@ -476,6 +480,13 @@ def _build_export_notes(plan: TranslationPlan, loaded: LoadedContext) -> str:
             "3. Make executable: `chmod +x scripts/run.sh`",
             "4. Register under `.claude/skills/` and invoke via `bash scripts/run.sh <args>`.",
         ]
+    elif target == "pi":
+        next_steps = [
+            "1. Review `scripts/run.sh` — the generated script calls `run_pipeline`.",
+            f"2. {install_step}",
+            "3. Make executable: `chmod +x scripts/run.sh`",
+            "4. Register under `.pi/skills/` (or `.agents/skills/`) and invoke via `bash scripts/run.sh <args>`.",
+        ]
     else:
         next_steps = [
             f"1. {install_step}",
@@ -489,7 +500,7 @@ def _build_export_notes(plan: TranslationPlan, loaded: LoadedContext) -> str:
             if loaded.invocation.enforce
             else "**Mode**: audit — Guardian observes and logs but does not block operations."
         )
-        if target == "claude-code":
+        if target in ("claude-code", "pi"):
             audit_path_line = "- **Audit log**: `$ADAPTER_DIR/audit/runtime_audit.jsonl` (defaults to `./audit` if `ADAPTER_DIR` is unset)."
             audit_cmd_line = '  `mkdir -p "$ADAPTER_DIR/audit"` (or `mkdir -p ./audit` if `ADAPTER_DIR` is unset)'
         else:
@@ -564,6 +575,13 @@ def stage5_lint(
         run_sh = result.out_path / "scripts" / "run.sh"
         if not run_sh.exists():
             failures.append("scripts/run.sh not found in output")
+    elif target == "pi":
+        skill_md = result.out_path / "SKILL.md"
+        if not skill_md.exists():
+            failures.append("SKILL.md not found in output")
+        run_sh = result.out_path / "scripts" / "run.sh"
+        if not run_sh.exists():
+            failures.append("scripts/run.sh not found in output")
     elif target == "mcp":
         server_py = result.out_path / "server.py"
         if not server_py.exists():
@@ -621,6 +639,7 @@ def stage5_lint(
             "langgraph": result.out_path / "graph.py",
             "mcp": result.out_path / "server.py",
             "claude-code": result.out_path / "scripts" / "run.sh",
+            "pi": result.out_path / "scripts" / "run.sh",
         }
         entry_file = entry_files.get(target)
         if entry_file and entry_file.exists():
