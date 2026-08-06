@@ -130,3 +130,37 @@ def test_skill_md_name_matches_pi_regex():
     )
     fm = _frontmatter(result)
     assert PI_NAME_RE.match(fm["name"])
+
+
+from mellea_skills_compiler.export.targets.pi import (
+    _deployment_guidance,
+    _render_pyproject_toml,
+    _render_readme,
+)
+
+
+def test_pyproject_toml_uses_pi_adapter_suffix():
+    result = _render_pyproject_toml(
+        skill_name="weather-mellea", package_name="weather_mellea"
+    )
+    assert 'name = "weather-mellea-pi-adapter"' in result
+    assert "Pi adapter" in result
+
+
+def test_readme_references_pi_skills_directories():
+    result = _render_readme(
+        skill_name="weather-mellea",
+        package_name="weather_mellea",
+        modality="synchronous_oneshot",
+        sig=ParsedSignature(
+            function_name="run_pipeline", params=[], return_type="str", pattern="no_args"
+        ),
+    )
+    assert ".pi/skills/weather-mellea/" in result
+    assert ".agents/skills/weather-mellea/" in result
+    assert ".claude/skills/" not in result
+
+
+def test_deployment_guidance_mentions_pi_skills_root():
+    guidance = _deployment_guidance("synchronous_oneshot", "weather-mellea")
+    assert "pi" in guidance.lower()

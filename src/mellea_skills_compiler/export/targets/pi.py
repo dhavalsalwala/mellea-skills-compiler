@@ -438,18 +438,66 @@ def _skill_md_arg_note(sig: "ParsedSignature", modality: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# pyproject.toml, README.md, deployment guidance
-#
-# Stubs — implemented in Task 4 (pyproject.toml, README.md, deployment guidance).
-# Signatures below must match exactly what translate_pi calls so that task
-# can drop in real bodies without touching translate_pi.
+# pyproject.toml
 # ---------------------------------------------------------------------------
 
 
 def _render_pyproject_toml(
     *, skill_name: str, package_name: str, has_policy_manifest: bool = False
 ) -> str:
-    return ""
+    deps = ['    "mellea[hooks]>=0.3.2",\n']
+    if has_policy_manifest:
+        deps.append(
+            '    "mellea-skills-compiler@git+https://github.com/generative-computing/mellea-skills-compiler.git",\n'
+        )
+
+    return (
+        "[build-system]\n"
+        'requires = ["setuptools>=68"]\n'
+        'build-backend = "setuptools.build_meta"\n'
+        "\n"
+        "[project]\n"
+        f'name = "{skill_name}-pi-adapter"\n'
+        'version = "0.1.0"\n'
+        f'description = "Pi adapter for {skill_name} Mellea pipeline"\n'
+        'requires-python = ">=3.11"\n'
+        "dependencies = [\n" + "".join(deps) + "]\n"
+        "\n"
+        "[tool.setuptools.packages.find]\n"
+        'where = ["."]\n'
+        f'include = ["{package_name}*"]\n'
+    )
+
+
+# ---------------------------------------------------------------------------
+# README.md
+# ---------------------------------------------------------------------------
+
+_MODALITY_NOTES = {
+    "synchronous_oneshot": (
+        "This skill uses **synchronous oneshot** invocation. "
+        "Each call runs the pipeline to completion and returns a single JSON result."
+    ),
+    "streaming": (
+        "This skill uses **streaming** invocation. "
+        "Output is printed incrementally as it is generated."
+    ),
+    "conversational_session": (
+        "This skill uses **conversational session** invocation. "
+        "Pass `--session` as a JSON array of prior turns to maintain conversation history."
+    ),
+}
+
+_MODALITY_INVOCATION_EXAMPLE = {
+    "synchronous_oneshot": "bash scripts/run.sh <arg1> [arg2 ...]",
+    "streaming": "bash scripts/run.sh <arg1> [arg2 ...]",
+    "conversational_session": (
+        'bash scripts/run.sh --input "your message here"\n'
+        "# With session history:\n"
+        'bash scripts/run.sh --input "follow-up" '
+        '--session \'[{"input": "previous", "output": "response"}]\''
+    ),
+}
 
 
 def _render_readme(
@@ -460,8 +508,104 @@ def _render_readme(
     sig: "ParsedSignature",
     has_policy_manifest: bool = False,
 ) -> str:
-    return ""
+    display_name = skill_name.replace("-", " ").title()
+    modality_note = _MODALITY_NOTES.get(
+        modality, _MODALITY_NOTES["synchronous_oneshot"]
+    )
+    invocation_example = _MODALITY_INVOCATION_EXAMPLE.get(
+        modality, _MODALITY_INVOCATION_EXAMPLE["synchronous_oneshot"]
+    )
+
+    install_cmd = "pip install -e ."
+
+    guardian_section = ""
+    if has_policy_manifest:
+        guardian_section = (
+            "\n## Guardian audit\n\n"
+            "This bundle was exported from a certified skill. Guardian audit-mode is active at runtime.\n\n"
+            "The audit log is written to `audit/runtime_audit.jsonl` in this directory. "
+            "Ensure the process has write access:\n\n"
+            "```bash\n"
+            "mkdir -p audit\n"
+            "```\n\n"
+            "To suppress Guardian at runtime, remove `policy_manifest.json` from this directory.\n"
+        )
+
+    return (
+        f"# {display_name} — Pi Adapter\n"
+        f"\n"
+        f"Exported Pi adapter for the `{skill_name}` Mellea pipeline.\n"
+        f"\n"
+        f"## Installation\n"
+        f"\n"
+        f"```bash\n"
+        f"{install_cmd}\n"
+        f"```\n"
+        f"{guardian_section}"
+        f"\n"
+        f"## Registration\n"
+        f"\n"
+        f"Copy this directory to your Pi skills folder:\n"
+        f"\n"
+        f"```bash\n"
+        f"# Project-level:\n"
+        f"cp -r . .pi/skills/{skill_name}/\n"
+        f"\n"
+        f"# Or shared across agents:\n"
+        f"cp -r . .agents/skills/{skill_name}/\n"
+        f"\n"
+        f"# Or user-level (available in all projects):\n"
+        f"cp -r . ~/.pi/agent/skills/{skill_name}/\n"
+        f"```\n"
+        f"\n"
+        f"## Invocation\n"
+        f"\n"
+        f"```bash\n"
+        f"{invocation_example}\n"
+        f"```\n"
+        f"\n"
+        f"## Modality\n"
+        f"\n"
+        f"{modality_note}\n"
+        f"\n"
+        f"## Output format\n"
+        f"\n"
+        f"```json\n"
+        f'{{"status": "ok", "output": <result>}}\n'
+        f"```\n"
+        f"\n"
+        f"On error (stderr):\n"
+        f"\n"
+        f"```json\n"
+        f'{{"status": "error", "message": "<description>"}}\n'
+        f"```\n"
+        f"\n"
+        f"Exit code 0 on success, non-zero on error.\n"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Deployment guidance
+# ---------------------------------------------------------------------------
 
 
 def _deployment_guidance(modality: str, skill_name: str) -> str:
-    return "stub"
+    guides = {
+        "synchronous_oneshot": (
+            f"Install with `pip install -e .` and register under `.pi/skills/{skill_name}/` "
+            f"(or `.agents/skills/{skill_name}/`). Invoke via `bash scripts/run.sh <args>`."
+        ),
+        "streaming": (
+            f"Install with `pip install -e .` and register under `.pi/skills/{skill_name}/` "
+            f"(or `.agents/skills/{skill_name}/`). Output streams incrementally — suitable for "
+            "long-running or token-by-token responses."
+        ),
+        "conversational_session": (
+            f"Install with `pip install -e .` and register under `.pi/skills/{skill_name}/` "
+            f"(or `.agents/skills/{skill_name}/`). Pass `--session` JSON array across calls to "
+            "maintain conversation history."
+        ),
+    }
+    return guides.get(
+        modality, f"Install with `pip install -e .` and register the skill under your pi skills root."
+    )
