@@ -29,3 +29,55 @@ def test_to_pi_name_matches_pi_regex():
 def test_to_pi_name_respects_64_char_limit():
     long_name = "a" * 100
     assert len(_to_pi_name(long_name)) <= 64
+
+
+from mellea_skills_compiler.export.exporter import LoadedContext, ParsedSignature
+
+
+def _minimal_loaded_context(tmp_path, *, modality="synchronous_oneshot"):
+    from mellea_skills_compiler.export.exporter import Invocation
+
+    pkg_dir = tmp_path / "weather_mellea"
+    pkg_dir.mkdir()
+    (pkg_dir / "__init__.py").write_text("")
+
+    inv = Invocation(package_path=tmp_path, target="pi", out_path=tmp_path / "out")
+    manifest = {
+        "package_name": "weather_mellea",
+        "modality": modality,
+        "entry_signature": "run_pipeline() -> str",
+    }
+    sig = ParsedSignature(
+        function_name="run_pipeline", params=[], return_type="str", pattern="no_args"
+    )
+    return LoadedContext(
+        invocation=inv,
+        manifest=manifest,
+        package_source_dir=tmp_path,
+        python_package_dir=pkg_dir,
+        supporting_asset_dirs=[],
+        entry_module="pipeline",
+        sig=sig,
+        policy_manifest_path=None,
+    )
+
+
+def test_translate_pi_produces_four_adapter_files(tmp_path):
+    from mellea_skills_compiler.export.targets.pi import translate_pi
+
+    loaded = _minimal_loaded_context(tmp_path)
+    plan = translate_pi(loaded)
+
+    paths = {af.relative_path for af in plan.adapter_files}
+    assert paths == {"SKILL.md", "scripts/run.sh", "pyproject.toml", "README.md"}
+    assert plan.graph_name == "weather-mellea"
+    assert plan.bundled_package_name == "weather_mellea"
+
+
+def test_translate_pi_unsupported_modality_falls_back(tmp_path):
+    from mellea_skills_compiler.export.targets.pi import translate_pi
+
+    loaded = _minimal_loaded_context(tmp_path, modality="scheduled")
+    plan = translate_pi(loaded)
+
+    assert any("Falling back to synchronous_oneshot" in w for w in plan.warnings)
