@@ -323,12 +323,12 @@ mellea-skills certify examples/weather/weather_mellea --risk-model ibm-granite/g
 
 ### Export Compiled Mellea Skill
 
-Export a compiled Mellea skill to a deployment target - langgraph, claude-code, or mcp
+Export a compiled Mellea skill to a deployment target - langgraph, claude-code, mcp, or pi
 
 **Note**: This command is experimental. Output structure and CLI interface may change in future releases without a deprecation period.
 
 ```bash
-# Supported deployment target: mcp, langgraph, claude-code
+# Supported deployment target: mcp, langgraph, claude-code, pi
 mellea-skills export --target mcp <Your-local-path>/skills/weather/weather_mellea
 
 # '--force' overwrites output directory if it already exists.

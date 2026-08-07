@@ -2,22 +2,22 @@
 
 After [`FROM_STUBS_TO_RUNNING.md`](FROM_STUBS_TO_RUNNING.md), the next question is usually: _"Now that I have a working compiled skill, can I run it under a framework that isn't Mellea?"_
 
-This page describes the current state of export support and what the experimental `mellea-skills export` command does today. Anything outside the three supported targets is not export — it's a hand-written wrapper, and the work involved scales with how different the target harness is from a Python function call.
+This page describes the current state of export support and what the experimental `mellea-skills export` command does today. Anything outside the four supported targets is not export — it's a hand-written wrapper, and the work involved scales with how different the target harness is from a Python function call.
 
 ---
 
 ## 1. Current State
 
-This release is a **research preview**. There is an **experimental** `mellea-skills export` subcommand that targets three deployment harnesses: **LangGraph**, **Claude Code**, and **MCP** (Model Context Protocol). It lives on the [`export-pipeline`](../../../tree/export-pipeline) branch and is gated behind an `[EXPERIMENTAL]` flag — output structure and CLI surface may change between releases without a deprecation period.
+This release is a **research preview**. There is an **experimental** `mellea-skills export` subcommand that targets four deployment harnesses: **LangGraph**, **Claude Code**, **MCP** (Model Context Protocol), and **Pi** (Pi Coding Agent). It lives on the [`export-pipeline`](../../../tree/export-pipeline) branch and is gated behind an `[EXPERIMENTAL]` flag — output structure and CLI surface may change between releases without a deprecation period.
 
 What "experimental" means here, concretely:
 
-- The exporter runs end-to-end and produces deployable artifacts for the three supported targets.
+- The exporter runs end-to-end and produces deployable artifacts for the four supported targets.
 - Tests cover the core translation pipeline (`tests/mellea_skills_compiler/export/test_exporter.py`, ~490 lines) but coverage is narrower than the compile path.
 - Output file layouts, adapter conventions, and warning text may shift.
 - Not every modality is supported on every target (see §4).
 
-Out-of-the-box export in this research preview is limited to the three targets above. There is **no** built-in export path for OpenClaw, NanoClaw, CrewAI, Letta, AutoGen, smolagents, OpenAI Agents SDK, or other harnesses. For those, §3 sketches what hand-wrapping looks like — how much of the wrapping you have to do depends on how far the target's idioms are from a typed Python function call.
+Out-of-the-box export in this research preview is limited to the four targets above. There is **no** built-in export path for OpenClaw, NanoClaw, CrewAI, Letta, AutoGen, smolagents, OpenAI Agents SDK, or other harnesses. For those, §3 sketches what hand-wrapping looks like — how much of the wrapping you have to do depends on how far the target's idioms are from a typed Python function call.
 
 ---
 
@@ -41,7 +41,7 @@ The two contractually load-bearing pieces for export are `pipeline.py:run_pipeli
 
 ## 3. Hand-Wrapping a Compiled Skill (Not an Export)
 
-If your target harness isn't `langgraph`, `claude-code`, or `mcp`, you're writing a wrapper by hand. The recipes below sketch what that looks like for the supported targets (in case the experimental exporter doesn't fit your needs) and for harnesses we don't target. Treat them as starting points: the further your target diverges from "call a typed Python function", the more glue you have to write yourself, and Mellea-specific behaviours (typed validators, repair loops, Guardian hooks) only run inside the bundled package — not at the harness boundary.
+If your target harness isn't `langgraph`, `claude-code`, `mcp`, or `pi`, you're writing a wrapper by hand. The recipes below sketch what that looks like for the supported targets (in case the experimental exporter doesn't fit your needs) and for harnesses we don't target. Treat them as starting points: the further your target diverges from "call a typed Python function", the more glue you have to write yourself, and Mellea-specific behaviours (typed validators, repair loops, Guardian hooks) only run inside the bundled package — not at the harness boundary.
 
 ### As a Python library
 
@@ -100,6 +100,16 @@ A Claude Code skill is a Markdown file (`SKILL.md`) the agent loads, optionally 
 
 The native exporter (§4) generates all four artifacts.
 
+### As a Pi skill (manual)
+
+A Pi skill is structurally the same shape as a Claude Code skill — a `SKILL.md` file the agent loads, backed by helper scripts under `scripts/`. Wrapping a compiled skill this way means letting Pi shell out to a Python helper:
+
+1. Create `SKILL.md` with Pi-native frontmatter (`name`, `description`, optional `compatibility`) describing the skill and how to invoke it.
+2. Add `scripts/run.sh` that calls `python -m <package_name>.pipeline` with the right arguments.
+3. Distribute via `pyproject.toml` so the package is on `PATH`.
+
+The native exporter (§4) generates all four artifacts.
+
 ---
 
 ## 4. The `mellea-skills export` Command (Experimental)
@@ -111,7 +121,7 @@ mellea-skills export <package_path> <target> [--force]
 Where:
 
 - `<package_path>` — the compiled skill directory (the one containing `melleafy.json`, or a parent that holds a single `*_mellea/` subdirectory).
-- `<target>` — one of `langgraph`, `claude-code`, `mcp`.
+- `<target>` — one of `langgraph`, `claude-code`, `mcp`, `pi`.
 - `--force` / `-f` — overwrite the output directory if it already exists.
 
 Output is written to `<package_name>/<package_name>-<target>/` inside the skill directory, and the compiled Mellea package is bundled inside it so the export is self-contained.
@@ -167,11 +177,27 @@ Modalities supported: `synchronous_oneshot`, `conversational_session`, `schedule
 What's preserved: typed inputs (validated by Pydantic at the tool boundary), structured outputs, env-var contract.
 What's lost: token-by-token streaming to MCP clients (would require `streamable-http` transport — not configured by the exporter today).
 
+### Pi target
+
+Generated artifacts:
+
+| File             | Purpose                                                                                                   |
+| ---------------- | ------------------------------------------------------------------------------------------------------------|
+| `SKILL.md`       | Pi-native skill description (hyphenated `name`, `description`, optional `compatibility`).                 |
+| `scripts/run.sh` | Bash entry point that invokes the bundled Python pipeline with arguments forwarded as JSON or positional. |
+| `pyproject.toml` | Installable package so `run.sh` can resolve the bundled module.                                           |
+| `README.md`      | Installation and invocation instructions, referencing `.pi/skills/` and `.agents/skills/`.                |
+
+Modalities supported: `synchronous_oneshot`, `streaming` (unbuffered async streaming via `run.sh`), `conversational_session` (session carry-forward via a `--session` JSON arg).
+
+What's preserved: invocation via Pi's skill mechanism, modality-aware streaming, the bundled package's typed pipeline.
+What's lost: typed contract at the Pi surface (Pi dispatches via prompt + script, not function call) — same limitation as the Claude Code target.
+
 ---
 
 ## 5. Harnesses We Do Not Export To
 
-To set expectations clearly: **this research preview does not currently export to OpenClaw, NanoClaw, CrewAI, Letta, AutoGen, OpenAI Agents SDK, smolagents, or any harness outside the three above.** The compiler can _detect_ several of these as input dialects (see [`mellea-fy-inventory.md`](../.claude/commands/mellea-fy-inventory.md) for the dialect detection table) — that lets you compile a skill _from_ one of those formats, but it does not produce an export _to_ it.
+To set expectations clearly: **this research preview does not currently export to OpenClaw, NanoClaw, CrewAI, Letta, AutoGen, OpenAI Agents SDK, smolagents, or any harness outside the four above.** The compiler can _detect_ several of these as input dialects (see [`mellea-fy-inventory.md`](../.claude/commands/mellea-fy-inventory.md) for the dialect detection table) — that lets you compile a skill _from_ one of those formats, but it does not produce an export _to_ it.
 
 If you need to run a compiled skill under one of these harnesses, you write the wrapper yourself. The §3 patterns are the starting point; the typed contract in `melleafy.json` tells you what shape the wrapper has to bridge. More native export targets are on the roadmap, not in this preview.
 
