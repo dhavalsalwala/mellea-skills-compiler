@@ -420,9 +420,9 @@ def full_pipeline(
             LOGGER.info("Total: %d", len(fixture_results))
 
             status_counts: Counter[str] = Counter(f.status for f in fixture_results)
-            LOGGER.info(f"Passed: {status_counts["success"]}")
-            LOGGER.info(f"Blocked (Risk detected): {status_counts["blocked"]}")
-            LOGGER.info(f"Failed: {status_counts["failed"]}")
+            LOGGER.info(f"Passed: {status_counts['success']}")
+            LOGGER.info(f"Blocked (Risk detected): {status_counts['blocked']}")
+            LOGGER.info(f"Failed: {status_counts['failed']}")
             LOGGER.info(f"Fixture Results: {fixture_results_path}")
 
         # ── Step 5: Guardian verdict summary ──────────────────────────────
@@ -517,9 +517,9 @@ def full_pipeline(
         LOGGER.info("Audit events: %d", len(audit_entries))
         LOGGER.info("")
         LOGGER.info("Compliance:")
-        LOGGER.info(f"  AUTOMATED={counts["AUTOMATED"]}")
-        LOGGER.info(f"  PARTIAL={counts["PARTIAL"]}")
-        LOGGER.info(f"  MANUAL={counts["MANUAL"]}")
+        LOGGER.info(f"  AUTOMATED={counts['AUTOMATED']}")
+        LOGGER.info(f"  PARTIAL={counts['PARTIAL']}")
+        LOGGER.info(f"  MANUAL={counts['MANUAL']}")
         LOGGER.info("")
         LOGGER.info(f"Artifacts written to {audit_dir}")
         for file in [f for f in audit_dir.iterdir() if f.is_file()]:
