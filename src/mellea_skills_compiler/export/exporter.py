@@ -461,10 +461,15 @@ def _build_export_notes(plan: TranslationPlan, loaded: LoadedContext) -> str:
         else "Install dependencies: `pip install -e .`"
     )
     if target == "langgraph":
+        state_key = (
+            loaded.sig.params[0]["name"]
+            if loaded.sig.pattern == "single_positional" and loaded.sig.params
+            else "input"
+        )
         next_steps = [
             "1. Review `graph.py` — the generated node calls `run_pipeline` directly.",
             f"2. {install_step}",
-            "3. Invoke: `python -c \"import asyncio; from graph import graph; print(asyncio.run(graph.ainvoke({'input': {}}))['output'])\"`",
+            f"3. Invoke: `python -c \"import asyncio; from graph import graph; print(asyncio.run(graph.ainvoke({{'{state_key}': {{}} }}))['output'])\"`",
             "4. For LangGraph Platform: deploy using `langgraph.json`.",
         ]
     elif target == "mcp":
