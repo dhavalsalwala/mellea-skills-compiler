@@ -193,7 +193,8 @@ def stage2_load(inv: Invocation, manifest: dict) -> LoadedContext:
         supporting_asset_dirs = []
 
     # Policy manifest (optional) — check the skill dir itself first, then any
-    # audit_* sibling directories produced by the certify command.
+    # subdirectory inside an `audit/` sibling directory produced by the certify command
+    # (i.e. <skill_root.parent>/audit/*/policy_manifest.json).
     policy_manifest_path: Optional[Path] = None
     if (skill_root / "policy_manifest.json").exists():
         policy_manifest_path = skill_root / "policy_manifest.json"
