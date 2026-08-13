@@ -31,6 +31,7 @@ from mellea_skills_compiler.toolkit.file_utils import (
 )
 from mellea_skills_compiler.toolkit.logging import configure_logger
 
+
 LOGGER = configure_logger()
 console = Console(log_time=True)
 
@@ -319,7 +320,7 @@ def compile(
         skill_backend, skill_model
     )
     LOGGER.info(
-        "Compiled skill will use backend=%r, model=%r (from %s).",
+        "Compiled skill will use inference service=%r, model=%r (from %s).",
         chosen_backend,
         chosen_model_id,
         defaults_source,
@@ -348,7 +349,7 @@ def compile(
         defaults_source=defaults_source,
         refresh_cache=refresh_cache,
     )
-    LOGGER.info("Starting compilation with backend '%s'", backend)
+
     result = backend_impl.compile(context)
     if not result.success:
         raise RuntimeError(f"Compilation failed - {result.error_message}")
@@ -358,9 +359,9 @@ def compile(
     try:
         mellea_dir: Path = _select_canonical_mellea_dir(spec_dir, mellea_package_name)
         render_writers(mellea_dir, enforce=True)
-        validate(mellea_dir, no_run=no_run, all_fixtures=False)
         if spec_md_path:
             shutil.copy(spec_md_path, mellea_dir / SpecFileFormat.SKILL_FILE_MD)
+        validate(mellea_dir, no_run=no_run, all_fixtures=False)
     except Exception as e:
         raise RuntimeError(
             f"Compilation failed with backend '{backend}': {str(e)}"

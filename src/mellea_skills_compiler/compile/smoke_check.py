@@ -26,6 +26,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from mellea_skills_compiler.models import Fixture
 from mellea_skills_compiler.toolkit.file_utils import (
     load_fixtures,
     load_skill_pipeline,
@@ -166,20 +167,41 @@ def _classify_exception(
             )
 
     # stdlib network errors
-    if isinstance(exc, (ConnectionError, ConnectionRefusedError, ConnectionAbortedError, ConnectionResetError)):
+    if isinstance(
+        exc,
+        (
+            ConnectionError,
+            ConnectionRefusedError,
+            ConnectionAbortedError,
+            ConnectionResetError,
+        ),
+    ):
         return f"backend unreachable: {cls_name}: {exc}"
     if isinstance(exc, TimeoutError):
         return f"backend unreachable: timeout: {exc}"
 
     # httpx / requests / urllib3 — name-matched to avoid import dependencies
-    if cls_name in ("ConnectError", "ConnectTimeout", "ReadTimeout", "PoolTimeout", "RemoteProtocolError"):
+    if cls_name in (
+        "ConnectError",
+        "ConnectTimeout",
+        "ReadTimeout",
+        "PoolTimeout",
+        "RemoteProtocolError",
+    ):
         return f"backend unreachable: {cls_module}.{cls_name}: {exc}"
-    if cls_name == "ConnectionError" and cls_module.startswith(("requests", "urllib3", "httpx", "httpcore")):
+    if cls_name == "ConnectionError" and cls_module.startswith(
+        ("requests", "urllib3", "httpx", "httpcore")
+    ):
         return f"backend unreachable: {cls_module}.{cls_name}: {exc}"
 
     # HTTP auth from various libs (string match — APIs vary widely)
     text = str(exc)
-    if "401" in text or "403" in text or "unauthorized" in text.lower() or "authentication failed" in text.lower():
+    if (
+        "401" in text
+        or "403" in text
+        or "unauthorized" in text.lower()
+        or "authentication failed" in text.lower()
+    ):
         return f"backend unreachable: authentication failed (check API key or env vars): {exc}"
 
     # External HTTP service error (e.g. urllib ``HTTPError`` 4xx/5xx, raised directly
@@ -208,14 +230,14 @@ def _classify_exception(
 
 def _run_one_fixture(
     pipeline_fn,
-    fixture: Dict[str, Any],
+    fixture: Fixture,
     skill_dir: Optional[Path] = None,
     package_dir: Optional[Path] = None,
 ) -> SmokeFixtureResult:
-    fixture_id = fixture.get("id", "<unknown>")
+    fixture_id = fixture.id
     started = time.time()
     try:
-        context = fixture["context"]
+        context: Dict[str, Any] = fixture.context
         # Run the fixture from the package directory so package-relative input
         # paths (e.g. 'references/example_patient.json' bundled in the package)
         # resolve the same way they do for an installed skill, rather than
@@ -246,7 +268,9 @@ def _run_one_fixture(
             verdict="failed",
             duration_seconds=duration,
             failure_message=f"{type(exc).__name__}: {exc}",
-            failure_traceback="".join(traceback.format_exception(type(exc), exc, exc.__traceback__)),
+            failure_traceback="".join(
+                traceback.format_exception(type(exc), exc, exc.__traceback__)
+            ),
         )
     return SmokeFixtureResult(
         fixture_id=fixture_id,

@@ -102,11 +102,11 @@ def compile(
         ),
     ] = None,
     backend: Annotated[
-        str,
+        Literal["claude", "bob"],
         typer.Option(
             "--backend",
             "-b",
-            help="Compilation backend to use. Currently only 'claude' is supported.",
+            help="Compilation backend to use ['claude', 'bob'].",
         ),
     ] = "claude",
 ):

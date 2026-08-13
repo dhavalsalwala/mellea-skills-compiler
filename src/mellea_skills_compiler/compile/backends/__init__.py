@@ -8,9 +8,12 @@ Available backends:
 """
 
 from mellea_skills_compiler.compile.backend import register_backend
+from mellea_skills_compiler.compile.backends.bob import BOBBackend
 from mellea_skills_compiler.compile.backends.claude_code import ClaudeCodeBackend
+
 
 # Register the Claude Code backend
 register_backend("claude", ClaudeCodeBackend)
+register_backend("bob", BOBBackend)
 
-__all__ = ["ClaudeCodeBackend"]
+__all__ = ["ClaudeCodeBackend", "BOBBackend"]

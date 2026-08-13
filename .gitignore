@@ -1,5 +1,3 @@
-#bob stuff
-*.bob/
 *bobnotes/
 *notes/
 pending-notes.txt
@@ -189,4 +187,3 @@ node_modules
 # Examples folders
 examples/
 skills/
-Bob_Mellea.md

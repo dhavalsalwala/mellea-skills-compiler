@@ -11,7 +11,7 @@ LOGGER = configure_logger()
 # Defaults for the LLM backend and model that compiled skills use at runtime.
 # Sourced from .claude/data/runtime_defaults.json with optional CLI overrides.
 _RUNTIME_DEFAULTS_PATH = Path(".claude/data/runtime_defaults.json")
-_RUNTIME_DEFAULTS_FALLBACK = {"backend": "ollama", "model_id": "granite4.1:3B"}
+_RUNTIME_DEFAULTS_FALLBACK = {"backend": "ollama", "model_id": "granite4.1:3b"}
 
 
 def resolve_runtime_defaults(
