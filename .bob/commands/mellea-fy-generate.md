@@ -60,11 +60,11 @@ Step 7's `bundled-asset-path-resolution` lint catches violations at validation t
 
 **config.py**: C1 and C2 bundle entries become `Final[str]` constants under `# === C1: Identity ===` and `# === C2: Operating Rules ===` section headers. C8 bundle entries (model ID, backend) also here. Every constant gets a `# PROVENANCE: <source_file>:<source_lines>` comment.
 
-**In Step 5, the model emits JSON `intermediate/config_emission.json` conforming to `.bob/schemas/config_emission.schema.json` — not Python source. The writer `config_writer.py` renders the file.**
+**In Step 5, the model emits ONLY JSON `intermediate/config_emission.json` conforming to `.bob/schemas/config_emission.schema.json` — not Python source. The writer `config_writer.py` reads this JSON and renders the final `config.py` file.**
 
-> **C8 backend rule**: `BACKEND` and `MODEL_ID` values are injected via the system prompt by the compile pipeline (sourced from `.bob/data/runtime_defaults.json`, with optional `--backend` / `--model-id` CLI overrides). Emit them in `config.py` exactly as instructed in the system prompt; do not invent alternatives. The Step 7 `runtime-defaults-bound` lint enforces this — divergence from the injected values is a hard failure.
+> **C8 backend rule (CRITICAL)**: `BACKEND` and `MODEL_ID` values MUST be read from `intermediate/runtime_directive.json` (fields `.backend` and `.model_id` respectively). Read the file, extract the two values, and include them in the `config_emission.json` output exactly as they appear in `runtime_directive.json`. Do not invent alternatives or use values from any other source. The Step 7 `runtime-defaults-bound` lint enforces this — divergence from the `runtime_directive.json` values is a hard failure.
 
-_JSON the model emits:_
+_JSON the model emits to `intermediate/config_emission.json`:_
 
 ```json
 {
@@ -322,7 +322,7 @@ Before generating any body, include in the context:
 Generate all of these simultaneously in one turn. They are mutually independent at generation time:
 
 1. `schemas.py` — Pydantic models (referenced by Phase B)
-2. `config.py` — emit JSON conforming to `.bob/schemas/config_emission.schema.json`; the writer `config_writer.py` renders the Python source
+2. `intermediate/config_emission.json` — config json (referenced in Step 5)
 3. `requirements.py` — requirement functions (referenced by Phase B)
 4. `slots.py` — `@generative` slot bodies (referenced by Phase B)
 5. `tools.py` / `constrained_slots.py` — tool implementations (referenced by Phase B)

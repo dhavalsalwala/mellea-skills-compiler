@@ -1,10 +1,14 @@
 # Melleafy Step 4: Fixture Generation
 
-**Version**: 4.1.1 | **Prereq**: Step 3 complete (skeleton emitted with finalised `run_pipeline` signature) | **Produces**: `<package_name>/fixtures/`
+**Version**: 4.2.0 | **Prereq**: Step 3 complete (skeleton emitted with finalised `run_pipeline` signature) | **Produces**: `fixtures_emission.json`
 
-> **Output path rule** (Rule OUT-4): `fixtures/` is written **inside `<package_name>/`** — NOT at the skill root. It is test-only and intentionally excluded from the installed package by `pyproject.toml`'s `[tool.setuptools.packages.find]`. Run fixtures via `python -m pytest <package_name>/fixtures/` from the skill root.
+> **Schema**: Output `intermediate/fixtures_emission.json` MUST conform to `.bob/schemas/fixtures_emission.schema.json`
 
-> **Rule 4-1 — Batched fixture generation as JSON**: Generate all fixture specifications in a single LLM invocation. The invocation receives the `run_pipeline` signature, the element mapping summary, and the C-category coverage requirement, and returns **one JSON object conforming to `.bob/schemas/fixtures_emission.schema.json`** — not Python source. The deterministic writer `fixtures_writer.py` renders the per-fixture `.py` files plus `fixtures/__init__.py` from that JSON. **The model never writes Python source for fixtures directly.** This makes shape drift (pytest-style tests, `INPUT`-only modules, hand-rolled `__init__.py` exports) structurally unreachable — every legal JSON instance produces a contract-correct fixture package.
+> **Output path rule** (Rule OUT-4): Step 4 produces **ONLY** `fixtures_emission.json` in the intermediate directory. This JSON file contains fixture specifications that will be used by downstream processes. **DO NOT generate any Python source files** — no `fixtures/` directory, no `.py` files, no `__init__.py`. The fixture source code generation is handled by a separate process outside this skill.
+
+Step 4 generates fixture specifications for 5–8 test fixtures covering ≥3 C-categories. The output is a single JSON file conforming to the schema.
+
+> **Rule 4-1 — JSON-only fixture specification**: Generate all fixture specifications in a single JSON object conforming to `.bob/schemas/fixtures_emission.schema.json`. The invocation receives the `run_pipeline` signature, the element mapping summary, and the C-category coverage requirement, and returns **one JSON object** — not Python source. **This skill's output is ONLY the JSON file.** Do not generate Python fixture files, do not create a `fixtures/` directory, do not write `__init__.py` or individual fixture modules.
 
 ---
 
@@ -16,9 +20,9 @@
 
 ## Fixture structure
 
-The model emits one JSON object `intermediate/fixtures_emission.json`; the writer renders the entire `fixtures/` subpackage.
+The model emits one JSON object saved as `intermediate/fixtures_emission.json`. **This is the only output of Step 4.**
 
-_JSON the model emits (conforms to `fixtures_emission.schema.json`):_
+_JSON output (conforms to `fixtures_emission.schema.json`):_
 
 ```json
 {
@@ -43,16 +47,6 @@ _JSON the model emits (conforms to `fixtures_emission.schema.json`):_
   "coverage_doc": "Fixture coverage:\n  C1 Identity: all fixtures\n  C2 Operating rules: positive_case\n  C6 Tools: positive_case"
 }
 ```
-
-### Anti-patterns the writer prevents (do not emit)
-
-The writer architecture makes these shapes unreachable, but they have appeared in past LLM-generated outputs and serve as a sanity check on what _not_ to think you should emit:
-
-- **Pytest-style test functions** — `def test_<name>() -> None: assert ...` is a pytest test, not a melleafy fixture. Melleafy fixtures are factories returning `(inputs, fixture_id, description)`.
-- **Bare `INPUT = {...}` modules** with `__init__.py` re-exporting them as `*_INPUT` aliases — there is no `ALL_FIXTURES` list and no factory functions, so `load_fixtures` rejects the package.
-- **Hand-rolled `FIXTURES = [{"id": ..., "context": ...}]` dicts** — the alternate convention some early skills used; the writer always produces `ALL_FIXTURES` of factories.
-
----
 
 ## Required fixture categories
 
@@ -79,24 +73,12 @@ Example — a ticket-triage skill with C1 (persona), C2 (operating rules), and C
 - Clean case exercises C1 and C2 (no escalation, no tool call)
 - Edge case (empty) exercises C2 (out-of-scope handling rule)
 
-Record in `fixtures/__init__.py` as a docstring:
-
-```python
-"""
-Fixture coverage:
-  C1 Identity: all fixtures
-  C2 Operating rules: positive_case, edge_empty
-  C6 Tools: positive_case, mixed_case
-"""
-```
-
 ---
 
 ## Quality rules
 
 - Inputs must have realistic, non-trivial data — not placeholder text like `"some input here"`
 - The `description` field states the expected behaviour, not just what the input is
-- Mock data for C6 tools goes in `fixtures/mock_tools.py` (for stubs with disposition `mock`), not in fixture inputs
 - Do NOT use real credentials, personal data, or production system identifiers in fixtures
 - Fixtures should run without network access — if the pipeline makes tool calls, use mock tool implementations or `load_from_disk` with bundled fixture data
 
@@ -111,9 +93,3 @@ The schema (`fixtures_emission.schema.json`) and writer (`fixtures_writer.py`) t
 - Every fixture's `inputs` keys match the generated `run_pipeline` signature exactly (model self-check; verify against `pipeline.py` before emitting JSON)
 - Every fixture has a non-empty, realistic `inputs` value (not placeholder text)
 - `coverage_doc` is populated with C-category coverage notes
-
-The writer `fixtures_writer.py` guarantees, regardless of model output:
-
-- `fixtures/__init__.py` exports `ALL_FIXTURES: list[Callable]`
-- Each `fixtures/<id>.py` defines a `make_<id>()` factory returning `(inputs, fixture_id, description)`
-- All `id` values are unique snake_case identifiers

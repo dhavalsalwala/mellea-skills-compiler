@@ -174,7 +174,9 @@ def run_pipeline(
                     guardian_plugin = GuardianPluginFactory.create(
                         guardian_mode,
                         manifest.risks,
-                        InferenceService.guardian_engine(guardian_model, inference_engine_type),
+                        InferenceService.guardian_engine(
+                            guardian_model, inference_engine_type
+                        ),
                     )
                     guardian_plugin.register()
                     audit_plugin = AuditTrailPlugin(
@@ -207,7 +209,9 @@ def run_pipeline(
         # Write fixture results if available
         if fixture_result:
             fixture_results_path: Path = run_dir / "fixture_results.json"
-            _dump_fixture_results(results_path=fixture_results_path, fixture_results=[fixture_result])
+            _dump_fixture_results(
+                results_path=fixture_results_path, fixture_results=[fixture_result]
+            )
 
         # output
         console.print(f"\n[bold blue]OUTPUT:[/]\n{fixture_result.output}")
@@ -275,9 +279,7 @@ def full_pipeline(
 
         # Create the current audit directory
         audit_dir = (
-            pipeline_dir.parent
-            / "audit"
-            / datetime.now().strftime('%d-%m-%Y_%H-%M-%S')
+            pipeline_dir.parent / "audit" / datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
         )
         audit_dir.mkdir(parents=True, exist_ok=True)
 
@@ -339,7 +341,9 @@ def full_pipeline(
         manifest: PolicyManifest = generate_policy_manifest(
             use_case,
             nexus,
-            inference_engine=InferenceService.risk_engine(risk_model, inference_engine_type),
+            inference_engine=InferenceService.risk_engine(
+                risk_model, inference_engine_type
+            ),
         )
         manifest_path: Path = audit_dir / "policy_manifest.json"
         manifest.to_json(path=manifest_path)
@@ -405,10 +409,14 @@ def full_pipeline(
 
                 LOGGER.info(f"✓ Executed {len(sample_fixtures)} fixture(s)")
         except Exception as e:
-            raise RuntimeError(f"✗ Fixtures execution failed with error: {str(e)}") from e
+            raise RuntimeError(
+                f"✗ Fixtures execution failed with error: {str(e)}"
+            ) from e
 
         # Write fixture results if available
+        fixture_summary: Counter[str] = None
         if fixture_results:
+            fixture_summary = Counter(f.status for f in fixture_results)
             fixture_results_path: Path = audit_dir / "fixture_results.json"
             _dump_fixture_results(fixture_results_path, fixture_results)
 
@@ -419,11 +427,20 @@ def full_pipeline(
             LOGGER.info("=" * 70)
             LOGGER.info("Total: %d", len(fixture_results))
 
-            status_counts: Counter[str] = Counter(f.status for f in fixture_results)
-            LOGGER.info(f"Passed: {status_counts["success"]}")
-            LOGGER.info(f"Blocked (Risk detected): {status_counts["blocked"]}")
-            LOGGER.info(f"Failed: {status_counts["failed"]}")
+            LOGGER.info(f"Passed: {fixture_summary["success"]}")
+            LOGGER.info(f"Blocked (Risk detected): {fixture_summary["blocked"]}")
+            LOGGER.info(f"Failed: {fixture_summary["failed"]}")
             LOGGER.info(f"Fixture Results: {fixture_results_path}")
+
+            if len(fixture_results) == fixture_summary["failed"]:
+                message = "🔴 All fixtures failed. Certification process aborted."
+                LOGGER.error(message)
+                return RunResult.failed(
+                    run_dir=audit_dir,
+                    input_parameters=input_parameters,
+                    guardian_verdicts=None,
+                    error_details={"type": "Fixture", "message": message},
+                )
 
         # ── Step 5: Guardian verdict summary ──────────────────────────────
         LOGGER.info("")
@@ -524,27 +541,40 @@ def full_pipeline(
         LOGGER.info(f"Artifacts written to {audit_dir}")
         for file in [f for f in audit_dir.iterdir() if f.is_file()]:
             LOGGER.info(f"  {file.name}")
-        LOGGER.info("")
 
-        if all(
+        warnings = []
+        if manifest.risks and all(
             risk.source == NexusRiskSource.DEFAULT_FALLBACK for risk in manifest.risks
         ):
-            LOGGER.warning(
-                f" This certification report is based on generic fail-safe risk screening - {[risk.name for risk in manifest.risks]}. The risks identified are not specific to the intended use-case."
+            risk_names = [risk.name for risk in manifest.risks]
+            warnings.append(
+                f"Generic fail-safe risk screening applied: {risk_names}. "
+                "Risks are not specific to the intended use-case."
             )
-            LOGGER.info("")
+        if fixture_summary and fixture_summary["failed"] > 0:
+            success_count = fixture_summary["success"]
+            total_count = len(fixture_results)
+            pass_rate = (success_count / total_count) * 100
+            warnings.append(
+                f"Low fixture pass rate: {pass_rate:.1f}% ({success_count}/{total_count} passed). "
+                "Consider reviewing failed fixtures before proceeding."
+            )
 
-        if verdict_summary["flagged_verdicts"]:
+        if warnings:
+            warning_msg = "\n\n⚠️  CERTIFICATION WARNINGS:\n"
+            for warning in warnings:
+                warning_msg += f"  • {warning}\n"
+            LOGGER.warning(warning_msg)
+
+        has_flagged = verdict_summary["flagged_verdicts"]
+        has_failed = verdict_summary["failed_verdicts"]
+
+        if has_failed:
+            LOGGER.warning("STATUS: RISK ASSESSMENT FAILURE — review audit trail")
+        elif has_flagged:
             LOGGER.warning("STATUS: RISKS DETECTED — review audit trail")
-        if verdict_summary["failed_verdicts"]:
-            LOGGER.warning(
-                "STATUS: RISKS ASSESSMENT FAILURE DETECTED — review audit trail"
-            )
-        if (
-            not verdict_summary["flagged_verdicts"]
-            and not verdict_summary["failed_verdicts"]
-        ):
-            LOGGER.info("STATUS: ALL CHECKS PASSED")
+        else:
+            LOGGER.info("ALL STATUS CHECKS PASSED")
 
         # Return RunResult with the summary of the run
         return RunResult.success(

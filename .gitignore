@@ -1,6 +1,4 @@
-*bobnotes/
-*notes/
-pending-notes.txt
+.bob/notes/
 *IMPLEMENTATION_PLAN.md
 
 # Byte-compiled / optimized / DLL files

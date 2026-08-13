@@ -93,7 +93,9 @@ class PolicyManifest:
         with open(file=path) as f:
             data = json.load(fp=f)
         risks: List[NexusRisk] = [NexusRisk(**r) for r in data.get("risks", [])]
-        additional_risks: List[NexusRisk] = [NexusRisk(**r) for r in data.get("additional_risks", [])]
+        additional_risks: List[NexusRisk] = [
+            NexusRisk(**r) for r in data.get("additional_risks", [])
+        ]
         governance_actions: List[GovernanceAction] = [
             GovernanceAction(**a) for a in data.get("governance_actions", [])
         ]
@@ -232,7 +234,6 @@ class RunResult:
                     default=str,
                 )
 
-            print()
             LOGGER.info(f"Run result written to {run_result_path}")
 
     @classmethod

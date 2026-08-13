@@ -7,11 +7,11 @@ from rich import print as rprint
 from rich.console import Console
 from rich.panel import Panel
 
-import mellea_skills_compiler.compile.backends  # noqa: F401 — triggers backend registration
 from mellea_skills_compiler.compile.backend import (
+    CompilationBackend,
     CompilationContext,
-    get_backend,
-    list_backends,
+    CompilationResult,
+    global_registry,
 )
 from mellea_skills_compiler.compile.claude_directives import (
     resolve_runtime_defaults,
@@ -205,20 +205,6 @@ def compile(
     skill_model: Optional[str] = None,
     backend: str = "claude",
 ) -> None:
-    # Validate backend parameter
-    available_backends = list_backends()
-    if backend not in available_backends:
-        raise ValueError(
-            f"Unknown backend '{backend}'. Available backends: {', '.join(available_backends)}"
-        )
-
-    # Get the backend implementation and validate its environment
-    backend_impl = get_backend(backend)
-    is_valid, error_msg = backend_impl.validate_environment()
-    if not is_valid:
-        raise RuntimeError(f"Backend '{backend}' not available: {error_msg}")
-    LOGGER.info("Backend '%s' environment validated successfully", backend)
-
     # clears screen
     console.clear()
 
@@ -271,7 +257,12 @@ def compile(
             )
         )
 
-    LOGGER.info("Using compilation backend: %s", backend)
+    # Get the backend implementation and validate its environment
+    backend_impl: CompilationBackend = global_registry.get_backend(identifier=backend)
+    is_valid, error_msg = backend_impl.validate_environment()
+    if not is_valid:
+        raise RuntimeError(f"Provided backend '{backend}' not available: {error_msg}")
+    LOGGER.info(f"Using compilation backend: {backend_impl.name()}")
 
     # Derive mellea package name from the spec frontmatter
     mellea_package_name = _derive_mellea_package_name(spec_path, spec_frontmatter)
@@ -337,7 +328,7 @@ def compile(
         )
 
     # Build compilation context and execute via backend
-    context = CompilationContext(
+    context: CompilationContext = CompilationContext(
         spec_path=spec_path,
         package_dir=mellea_package_dir,
         intermediate_dir=intermediate_dir,
@@ -350,7 +341,7 @@ def compile(
         refresh_cache=refresh_cache,
     )
 
-    result = backend_impl.compile(context)
+    result: CompilationResult = backend_impl.compile(context)
     if not result.success:
         raise RuntimeError(f"Compilation failed - {result.error_message}")
     LOGGER.info("Backend compilation completed successfully")
@@ -358,9 +349,9 @@ def compile(
     # Post-compile: render writers, validate, copy spec file
     try:
         mellea_dir: Path = _select_canonical_mellea_dir(spec_dir, mellea_package_name)
-        render_writers(mellea_dir, enforce=True)
         if spec_md_path:
             shutil.copy(spec_md_path, mellea_dir / SpecFileFormat.SKILL_FILE_MD)
+        render_writers(mellea_dir, enforce=True)
         validate(mellea_dir, no_run=no_run, all_fixtures=False)
     except Exception as e:
         raise RuntimeError(

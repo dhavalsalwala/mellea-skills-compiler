@@ -73,6 +73,7 @@ from mellea_skills_compiler.enums import (
     InferenceModel,
 )
 
+
 LOGGER = logging.getLogger(__name__)
 console = Console(log_time=True)
 
@@ -119,6 +120,20 @@ class ClaudeCodeBackend:
         ... )
         >>> result = backend.compile(context)
     """
+
+    @staticmethod
+    def name() -> str:
+        """Return human-readable backend name for logging and display.
+
+        Returns:
+            The string "Claude Code"
+
+        Example:
+            >>> backend = ClaudeCodeBackend()
+            >>> print(f"Using backend: {backend.name()}")
+            Using backend: Claude Code
+        """
+        return "Claude Code"
 
     def compile(self, context: CompilationContext) -> CompilationResult:
         """Execute the full compilation workflow using Claude Code.
@@ -393,19 +408,6 @@ class ClaudeCodeBackend:
             )
 
         return True, None
-
-    def get_backend_name(self) -> str:
-        """Return human-readable backend name for logging and display.
-
-        Returns:
-            The string "Claude Code"
-
-        Example:
-            >>> backend = ClaudeCodeBackend()
-            >>> print(f"Using backend: {backend.get_backend_name()}")
-            Using backend: Claude Code
-        """
-        return "Claude Code"
 
     def supports_repair_mode(self) -> bool:
         """Indicate that Claude Code supports repair mode.

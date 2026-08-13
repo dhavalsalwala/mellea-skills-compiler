@@ -1,19 +1,19 @@
-"""Claude Code backend implementation for mellea-skills compilation.
+"""BoB backend implementation for mellea-skills compilation.
 
-This module implements the CompilationBackend protocol using Anthropic's Claude Code CLI
+This module implements the CompilationBackend protocol using Anthropic's BoB CLI
 as the compilation engine. It wraps the existing subprocess-based approach that invokes
 the `/mellea-fy` and `/mellea-fy-repair` slash commands.
 
 The BOBBackend is responsible for:
-- Validating that Claude Code CLI is installed and configured
+- Validating that BoB CLI is installed and configured
 - Setting up a local proxy to strip context_management from API requests
-- Invoking Claude Code with appropriate arguments and system prompts
+- Invoking BoB with appropriate arguments and system prompts
 - Parsing the JSON streaming output to track compilation progress
 - Handling timeouts and errors gracefully
 - Cleaning up resources (proxy server, subprocesses) on completion or failure
 
 This backend requires:
-- Claude Code CLI installed and accessible in PATH
+- BoB CLI installed and accessible in PATH
 - Valid Anthropic API credentials (ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN)
 - Network access to Anthropic API (or configured ANTHROPIC_BASE_URL)
 
@@ -24,7 +24,7 @@ Example usage:
     >>> backend = BOBBackend()
     >>> is_valid, error = backend.validate_environment()
     >>> if not is_valid:
-    ...     print(f"Cannot use Claude Code: {error}")
+    ...     print(f"Cannot use BoB: {error}")
     ...     exit(1)
     >>>
     >>> context = CompilationContext(
@@ -80,24 +80,24 @@ console = Console(log_time=True)
 
 
 class BOBBackend:
-    """Claude Code backend for mellea-skills compilation.
+    """BoB backend for mellea-skills compilation.
 
     This backend implements the CompilationBackend protocol by wrapping the existing
-    Claude Code subprocess approach. It invokes the Claude Code CLI with the
+    BoB subprocess approach. It invokes the BoB CLI with the
     `/mellea-fy` or `/mellea-fy-repair` slash commands to decompose skill specifications
     into Mellea pipeline components.
 
     The backend handles:
     - Model validation via Anthropic API
     - Local proxy server setup to strip context_management from requests
-    - Claude Code subprocess invocation with appropriate arguments
+    - BoB subprocess invocation with appropriate arguments
     - JSON streaming output parsing to track compilation progress
     - Timeout handling and graceful termination
     - Error handling and cleanup of resources
 
     Architecture:
     - Uses a local proxy server to modify API requests before forwarding to Anthropic
-    - Runs Claude Code in project mode (-p) with restricted tools (Read, Write, Edit)
+    - Runs BoB in project mode (-p) with restricted tools (Read, Write, Edit)
     - Streams JSON output to track compilation steps and detect completion
     - Enforces deny rules via settings file to prevent overwriting wrapper-rendered files
 
@@ -110,7 +110,7 @@ class BOBBackend:
         >>> # Validate environment before use
         >>> is_valid, error = backend.validate_environment()
         >>> if not is_valid:
-        ...     raise RuntimeError(f"Claude Code not available: {error}")
+        ...     raise RuntimeError(f"BoB not available: {error}")
         >>>
         >>> # Execute compilation
         >>> context = CompilationContext(
@@ -122,17 +122,30 @@ class BOBBackend:
         >>> result = backend.compile(context)
     """
 
+    def name(self) -> str:
+        """Return human-readable backend name for logging and display.
+
+        Returns:
+            The string "IBM Bob"
+
+        Example:
+            >>> backend = BOBBackend()
+            >>> print(f"Using backend: {backend.name()}")
+            Using backend: IBM Bob
+        """
+        return "IBM Bob"
+
     def compile(self, context: CompilationContext) -> CompilationResult:
-        """Execute the full compilation workflow using Claude Code.
+        """Execute the full compilation workflow using BoB.
 
         This method orchestrates the 10-step compilation process by invoking the
-        Claude Code CLI with the `/mellea-fy` or `/mellea-fy-repair` slash command.
+        BoB CLI with the `/mellea-fy` or `/mellea-fy-repair` slash command.
 
         The compilation workflow:
         1. Validate the specified model is available via Anthropic API
         2. Start a local proxy server to strip context_management from requests
-        3. Build the Claude Code command-line arguments
-        4. Invoke Claude Code subprocess with system prompt and settings
+        3. Build the BoB command-line arguments
+        4. Invoke BoB subprocess with system prompt and settings
         5. Parse JSON streaming output to track progress
         6. Handle timeout if context.timeout > 0
         7. Detect compilation completion or errors
@@ -149,7 +162,7 @@ class BOBBackend:
             result.error_message contains a description of what went wrong.
 
         Raises:
-            RuntimeError: If Claude Code is not available or configured incorrectly
+            RuntimeError: If BoB is not available or configured incorrectly
             TimeoutError: If compilation exceeds context.timeout (when timeout > 0)
 
         Example:
@@ -168,32 +181,20 @@ class BOBBackend:
             ... else:
             ...     print(f"Compilation failed: {result.error_message}")
         """
-        proxy_server = None
         process = None
-
-        model = "Sonnet-3.5"
 
         try:
             console.print(
-                f"\n[green]{'Repairing' if context.repair_mode else 'Compiling'} using BoB model:[/] {model}\n"
+                f"\n[green]{'Repairing' if context.repair_mode else 'Compiling'} using {self.name()}\n"
             )
 
-            # Step 3: Build system prompt with runtime defaults
-            system_prompt = build_system_prompt(
-                context.skill_backend or "anthropic",
-                context.skill_model or model,
-                context.defaults_source,
-                context.package_dir,
-            )
-
-            # Step 5: Build Claude Code command-line arguments
-            claude_argv = self._build_claude_argv(
-                system_prompt=system_prompt,
+            # Step 5: Build BoB command-line arguments
+            claude_argv = self._build_bob_argv(
                 spec_path=context.spec_path,
                 repair_mode=context.repair_mode,
             )
 
-            # Step 6: Execute Claude Code subprocess
+            # Step 6: Execute BoB subprocess
             start_time = time.time()
             processing = console.status(
                 "[italic bold yellow]Processing...[/]", spinner_style="status.spinner"
@@ -296,10 +297,10 @@ class BOBBackend:
                     process.kill()
 
     def validate_environment(self) -> tuple[bool, Optional[str]]:
-        """Check if Claude Code CLI and API credentials are available.
+        """Check if BoB CLI and API credentials are available.
 
-        This method verifies that all prerequisites for using Claude Code are met:
-        1. Claude Code CLI is installed and accessible in PATH
+        This method verifies that all prerequisites for using BoB are met:
+        1. BoB CLI is installed and accessible in PATH
         2. Anthropic API credentials are configured (ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN)
         3. The API credentials are valid by checking that models can be listed
 
@@ -308,14 +309,14 @@ class BOBBackend:
 
         Returns:
             A tuple of ``(is_valid, error_message)`` where ``is_valid`` is ``True``
-            when Claude Code is usable and ``error_message`` contains a remediation
+            when BoB is usable and ``error_message`` contains a remediation
             hint when validation fails.
 
         Example:
             >>> backend = BOBBackend()
             >>> is_valid, error = backend.validate_environment()
             >>> if not is_valid:
-            ...     print(f"Cannot use Claude Code backend: {error}")
+            ...     print(f"Cannot use BoB backend: {error}")
         """
         if shutil.which("bob") is None:
             return False, (
@@ -325,28 +326,15 @@ class BOBBackend:
 
         return True, None
 
-    def get_backend_name(self) -> str:
-        """Return human-readable backend name for logging and display.
-
-        Returns:
-            The string "Claude Code"
-
-        Example:
-            >>> backend = BOBBackend()
-            >>> print(f"Using backend: {backend.get_backend_name()}")
-            Using backend: Claude Code
-        """
-        return "Claude Code"
-
     def supports_repair_mode(self) -> bool:
-        """Indicate that Claude Code supports repair mode.
+        """Indicate that BoB supports repair mode.
 
-        Claude Code supports repair mode via the `/mellea-fy-repair` slash command,
+        BoB supports repair mode via the `/mellea-fy-repair` slash command,
         which attempts to fix compilation errors by analyzing failed artifacts and
         regenerating specific components.
 
         Returns:
-            True (Claude Code supports repair mode)
+            True (BoB supports repair mode)
 
         Example:
             >>> backend = BOBBackend()
@@ -356,13 +344,12 @@ class BOBBackend:
         """
         return True
 
-    def _build_claude_argv(
+    def _build_bob_argv(
         self,
-        system_prompt: str,
         spec_path: Path,
         repair_mode: bool,
     ) -> list[str]:
-        """Build the command-line arguments for invoking Claude Code.
+        """Build the command-line arguments for invoking BoB.
 
         Constructs the full argv list for subprocess.Popen, including:
         - Project mode (-p)
@@ -393,7 +380,7 @@ class BOBBackend:
             ... )
             >>> # argv = ["claude", "-p", "--model", "claude-3-7-sonnet-20250219", ...]
         """
-        claude_argv = [
+        bob_argv = [
             "bob",
             f"/mellea-fy {spec_path}",
             "--yolo",
@@ -403,6 +390,6 @@ class BOBBackend:
             "text",
         ]
 
-        LOGGER.info(f"BoB command - {" ".join(claude_argv)}")
+        LOGGER.debug(f"BoB command - {" ".join(bob_argv)}")
 
-        return claude_argv
+        return bob_argv

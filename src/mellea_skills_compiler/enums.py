@@ -21,14 +21,16 @@ class InferenceEngineType(Enum):
     def list(cls) -> List[str]:
         return list(map(lambda c: c.name, cls))
 
-    def __str__(self) -> Literal['OLLAMA', 'VLLM']:
+    def __str__(self) -> Literal["OLLAMA", "VLLM"]:
         return self.name
+
 
 class InferenceModelType(Enum):
     """Default model types"""
 
     RISK_MODEL = auto()
     GUARDIAN_MODEL = auto()
+
 
 class InferenceModel(StrEnum):
     """Default model identifiers"""
@@ -71,7 +73,7 @@ class GuardianMode(StrEnum):
     ENFORCE = "enforce"
     AUDIT = "audit"
 
-    def __str__(self) -> Literal['DISABLED', 'ENFORCE', 'AUDIT']:
+    def __str__(self) -> Literal["DISABLED", "ENFORCE", "AUDIT"]:
         return self.name
 
 
@@ -97,3 +99,12 @@ class HookStage(StrEnum):
     @classmethod
     def list(cls) -> List[str]:
         return list(map(lambda c: c.value, cls))
+
+
+class BackendCompiler(StrEnum):
+
+    CLAUDE_CODE = "claude"
+    IBM_BOB = "bob"
+
+    def __str__(self) -> Literal["claude", "bob"]:
+        return self.value

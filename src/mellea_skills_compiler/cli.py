@@ -7,7 +7,11 @@ from typing import Annotated, Literal, Optional
 import typer
 from typer.main import Typer
 
-from mellea_skills_compiler.enums import GuardianMode, InferenceEngineType
+from mellea_skills_compiler.enums import (
+    BackendCompiler,
+    GuardianMode,
+    InferenceEngineType,
+)
 from mellea_skills_compiler.toolkit.logging import configure_logger
 
 
@@ -102,7 +106,7 @@ def compile(
         ),
     ] = None,
     backend: Annotated[
-        Literal["claude", "bob"],
+        str,
         typer.Option(
             "--backend",
             "-b",

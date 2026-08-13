@@ -7,13 +7,18 @@ Available backends:
 - claude_code: Uses Anthropic's Claude Code CLI for compilation
 """
 
-from mellea_skills_compiler.compile.backend import register_backend
+from mellea_skills_compiler.compile.backend import global_registry
 from mellea_skills_compiler.compile.backends.bob import BOBBackend
 from mellea_skills_compiler.compile.backends.claude_code import ClaudeCodeBackend
+from mellea_skills_compiler.enums import BackendCompiler
 
 
 # Register the Claude Code backend
-register_backend("claude", ClaudeCodeBackend)
-register_backend("bob", BOBBackend)
+global_registry.register_backend(
+    identifier=BackendCompiler.CLAUDE_CODE, backend_class=ClaudeCodeBackend
+)
+global_registry.register_backend(
+    identifier=BackendCompiler.IBM_BOB, backend_class=BOBBackend
+)
 
 __all__ = ["ClaudeCodeBackend", "BOBBackend"]
