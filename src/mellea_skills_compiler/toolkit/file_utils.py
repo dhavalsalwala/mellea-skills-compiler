@@ -65,7 +65,7 @@ def load_skill_pipeline(pipeline_dir: Path):
         skill_pipeline = importlib.import_module(f"{pipeline_dir.name}.pipeline")
     except ModuleNotFoundError as e:
         raise Exception(
-            f"Error: The `pipeline.py` module is missing from the pipeline directory - {pipeline_dir}"
+            f"Error loading pipeline module `{pipeline_dir.name}.pipeline`. Please verify that the module exists and that all imports are correct."
         )
     finally:
         # Remove parent directory from sys.path
