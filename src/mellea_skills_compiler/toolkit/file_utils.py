@@ -65,7 +65,7 @@ def load_skill_pipeline(pipeline_dir: Path):
         skill_pipeline = importlib.import_module(f"{pipeline_dir.name}.pipeline")
     except ModuleNotFoundError as e:
         raise Exception(
-            f"Error loading pipeline module `{pipeline_dir.name}.pipeline`. Please verify that the module exists and that all imports are correct."
+            f"Error loading pipeline module `{pipeline_dir.name}.pipeline`. {str(e)}."
         )
     finally:
         # Remove parent directory from sys.path
@@ -158,7 +158,7 @@ def load_fixtures(pipeline_dir: Path) -> List[Fixture]:
                 )
     except ImportError:
         raise Exception(
-            f"The `__init__.py` module is missing from the fixture directory - {fixtures_dir}"
+            f"Error loading fixtures from `{fixtures_dir}`. {str(e)}."
         )
     finally:
         sys.path.pop(0)
