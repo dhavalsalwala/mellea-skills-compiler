@@ -254,7 +254,9 @@ class TestLoadSkillPipeline:
             "    return ('canonical', user_input, doc)\n"
         )
         with tempfile.TemporaryDirectory() as tmp:
-            pkg_dir = _make_pipeline_package(Path(tmp), "synthetic_a_helper_pkg", source)
+            pkg_dir = _make_pipeline_package(
+                Path(tmp), "synthetic_a_helper_pkg", source
+            )
             fn = load_skill_pipeline(pkg_dir)
             # The canonical entry point takes user_input by kwarg and returns the canonical marker
             assert fn.__name__ == "run_pipeline"
@@ -262,12 +264,11 @@ class TestLoadSkillPipeline:
 
     def test_falls_back_to_first_run_function_when_no_run_pipeline(self):
         """If pipeline.py only defines run_other, that's the entry point."""
-        source = (
-            "def run_assessment_method(arg):\n"
-            "    return ('only-helper', arg)\n"
-        )
+        source = "def run_assessment_method(arg):\n" "    return ('only-helper', arg)\n"
         with tempfile.TemporaryDirectory() as tmp:
-            pkg_dir = _make_pipeline_package(Path(tmp), "synthetic_no_canonical_pkg", source)
+            pkg_dir = _make_pipeline_package(
+                Path(tmp), "synthetic_no_canonical_pkg", source
+            )
             fn = load_skill_pipeline(pkg_dir)
             assert fn.__name__ == "run_assessment_method"
 
@@ -281,7 +282,9 @@ class TestLoadSkillPipeline:
             "    return ('helper', x)\n"
         )
         with tempfile.TemporaryDirectory() as tmp:
-            pkg_dir = _make_pipeline_package(Path(tmp), "synthetic_z_helper_pkg", source)
+            pkg_dir = _make_pipeline_package(
+                Path(tmp), "synthetic_z_helper_pkg", source
+            )
             fn = load_skill_pipeline(pkg_dir)
             assert fn.__name__ == "run_pipeline"
 
@@ -295,7 +298,9 @@ class TestLoadSkillPipeline:
         )
         helpers = "def run_helper(x):\n    return ('imported', x)\n"
         with tempfile.TemporaryDirectory() as tmp:
-            pkg_dir = _make_pipeline_package(Path(tmp), "synthetic_with_import_pkg", source)
+            pkg_dir = _make_pipeline_package(
+                Path(tmp), "synthetic_with_import_pkg", source
+            )
             (pkg_dir / "helpers.py").write_text(helpers)
             fn = load_skill_pipeline(pkg_dir)
             assert fn.__name__ == "run_pipeline"
@@ -308,7 +313,7 @@ class TestLoadSkillPipeline:
             pkg_dir.mkdir()
             (pkg_dir / "__init__.py").write_text("")
             # No pipeline.py
-            with pytest.raises(Exception, match="pipeline.py"):
+            with pytest.raises(Exception, match="missing_pipeline_pkg.pipeline"):
                 load_skill_pipeline(pkg_dir)
 
     def test_raises_when_no_run_function_defined(self):

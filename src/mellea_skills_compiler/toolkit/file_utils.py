@@ -3,8 +3,7 @@ import re
 import shutil
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import yaml
 from rich.console import Console
@@ -65,7 +64,7 @@ def load_skill_pipeline(pipeline_dir: Path):
         skill_pipeline = importlib.import_module(f"{pipeline_dir.name}.pipeline")
     except ModuleNotFoundError as e:
         raise Exception(
-            f"Error: The `pipeline.py` module is missing from the pipeline directory - {pipeline_dir}"
+            f"Error loading pipeline module `{pipeline_dir.name}.pipeline`. {str(e)}."
         )
     finally:
         # Remove parent directory from sys.path
@@ -156,10 +155,8 @@ def load_fixtures(pipeline_dir: Path) -> List[Fixture]:
                 fixtures.append(
                     Fixture(id=fixture_id, context=inputs, description=description)
                 )
-    except ImportError:
-        raise Exception(
-            f"The `__init__.py` module is missing from the fixture directory - {fixtures_dir}"
-        )
+    except ImportError as e:
+        raise Exception(f"Error loading fixtures from `{fixtures_dir}`. {str(e)}.")
     finally:
         sys.path.pop(0)
 
