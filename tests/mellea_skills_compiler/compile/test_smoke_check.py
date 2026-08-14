@@ -12,6 +12,7 @@ from mellea_skills_compiler.compile.smoke_check import (
     _run_one_fixture,
     run_smoke_check,
 )
+from mellea_skills_compiler.models import Fixture
 
 
 class TestClassifyException:
@@ -46,9 +47,7 @@ class TestClassifyException:
         assert reason is None
 
     def test_named_httpx_connect_error_classified_as_skipped(self):
-        connect_error_cls = type(
-            "ConnectError", (Exception,), {"__module__": "httpx"}
-        )
+        connect_error_cls = type("ConnectError", (Exception,), {"__module__": "httpx"})
         exc = connect_error_cls("conn refused")
         reason = _classify_exception(exc)
         assert reason is not None
@@ -60,7 +59,7 @@ class TestRunOneFixture:
 
     def test_passes_when_pipeline_returns(self):
         pipeline_fn = lambda **k: "ok"  # noqa: E731
-        fixture = {"id": "f1", "context": {"x": 1}}
+        fixture = Fixture(id="f1", context={"x": 1}, description="Test fixture")
         result = _run_one_fixture(pipeline_fn, fixture)
         assert result.verdict == "passed"
         assert result.failure_message is None
@@ -70,7 +69,7 @@ class TestRunOneFixture:
         def pipeline_fn(**kwargs):
             raise ValueError("schema bad")
 
-        fixture = {"id": "f-fail", "context": {}}
+        fixture = Fixture(id="f-fail", context={}, description="Test fixture")
         result = _run_one_fixture(pipeline_fn, fixture)
         assert result.verdict == "failed"
         assert "ValueError" in result.failure_message
@@ -81,7 +80,7 @@ class TestRunOneFixture:
         def pipeline_fn(**kwargs):
             raise ConnectionError("ollama down")
 
-        fixture = {"id": "f-skip", "context": {}}
+        fixture = Fixture(id="f-skip", context={}, description="Test fixture")
         result = _run_one_fixture(pipeline_fn, fixture)
         assert result.verdict == "skipped"
         assert result.skipped_reason
@@ -91,7 +90,7 @@ class TestRunOneFixture:
         def pipeline_fn(**kwargs):
             time.sleep(0.05)
 
-        fixture = {"id": "f-dur", "context": {}}
+        fixture = Fixture(id="f-dur", context={}, description="Test fixture")
         result = _run_one_fixture(pipeline_fn, fixture)
         assert result.duration_seconds > 0
 
@@ -101,7 +100,11 @@ class TestRunOneFixture:
         def pipeline_fn(name, value):
             captured.append((name, value))
 
-        fixture = {"id": "f-kwargs", "context": {"name": "x", "value": 42}}
+        fixture = Fixture(
+            id="f-kwargs",
+            context={"name": "x", "value": 42},
+            description="Test fixture",
+        )
         result = _run_one_fixture(pipeline_fn, fixture)
         assert result.verdict == "passed"
         assert captured == [("x", 42)]
@@ -109,10 +112,12 @@ class TestRunOneFixture:
     def test_handles_non_dict_context_as_positional(self):
         captured = []
 
-        def pipeline_fn(arg):
-            captured.append(arg)
+        def pipeline_fn(query):
+            captured.append(query)
 
-        fixture = {"id": "f-pos", "context": "raw_input_string"}
+        fixture = Fixture(
+            id="f1", context={"query": "raw_input_string"}, description="Test fixture"
+        )
         result = _run_one_fixture(pipeline_fn, fixture)
         assert result.verdict == "passed"
         assert captured == ["raw_input_string"]
@@ -131,13 +136,11 @@ class TestRunSmokeCheck:
             lambda d: fixtures,
         )
 
-    def test_passed_runs_first_fixture_only_by_default(
-        self, monkeypatch, tmp_path
-    ):
+    def test_passed_runs_first_fixture_only_by_default(self, monkeypatch, tmp_path):
         fixtures = [
-            {"id": "f1", "context": {}},
-            {"id": "f2", "context": {}},
-            {"id": "f3", "context": {}},
+            Fixture(id="f1", context={}, description="Test fixture 1"),
+            Fixture(id="f2", context={}, description="Test fixture 2"),
+            Fixture(id="f3", context={}, description="Test fixture 3"),
         ]
         self._patch_loaders(monkeypatch, lambda **k: "ok", fixtures)
 
@@ -151,9 +154,9 @@ class TestRunSmokeCheck:
 
     def test_runs_all_when_all_fixtures_true(self, monkeypatch, tmp_path):
         fixtures = [
-            {"id": "f1", "context": {}},
-            {"id": "f2", "context": {}},
-            {"id": "f3", "context": {}},
+            Fixture(id="f1", context={}, description="Test fixture 1"),
+            Fixture(id="f2", context={}, description="Test fixture 2"),
+            Fixture(id="f3", context={}, description="Test fixture 3"),
         ]
         self._patch_loaders(monkeypatch, lambda **k: "ok", fixtures)
 
@@ -162,9 +165,7 @@ class TestRunSmokeCheck:
         assert len(result.fixtures) == 3
         assert result.overall_verdict == "passed"
 
-    def test_overall_failed_when_any_fixture_failed(
-        self, monkeypatch, tmp_path
-    ):
+    def test_overall_failed_when_any_fixture_failed(self, monkeypatch, tmp_path):
         call_count = {"n": 0}
 
         def pipeline_fn(**kwargs):
@@ -174,8 +175,8 @@ class TestRunSmokeCheck:
             return "ok"
 
         fixtures = [
-            {"id": "f1", "context": {}},
-            {"id": "f2", "context": {}},
+            Fixture(id="f1", context={}, description="Test fixture 1"),
+            Fixture(id="f2", context={}, description="Test fixture 2"),
         ]
         self._patch_loaders(monkeypatch, pipeline_fn, fixtures)
 
@@ -187,7 +188,7 @@ class TestRunSmokeCheck:
         def pipeline_fn(**kwargs):
             raise ConnectionError("backend down")
 
-        fixtures = [{"id": "f1", "context": {}}]
+        fixtures = [Fixture(id="f1", context={}, description="Test fixture 1")]
         self._patch_loaders(monkeypatch, pipeline_fn, fixtures)
 
         result = run_smoke_check(tmp_path, all_fixtures=False)
@@ -195,7 +196,7 @@ class TestRunSmokeCheck:
         assert result.overall_verdict == "skipped"
 
     def test_step_7b_report_shape(self, monkeypatch, tmp_path):
-        fixtures = [{"id": "f1", "context": {}}]
+        fixtures = [Fixture(id="f1", context={}, description="Test fixture 1")]
         self._patch_loaders(monkeypatch, lambda **k: "ok", fixtures)
 
         run_smoke_check(tmp_path, all_fixtures=False)
@@ -216,7 +217,7 @@ class TestRunSmokeCheck:
         assert "duration_seconds" in fx
 
     def test_exit_code_passed_is_zero(self, monkeypatch, tmp_path):
-        fixtures = [{"id": "f1", "context": {}}]
+        fixtures = [Fixture(id="f1", context={}, description="Test fixture 1")]
         self._patch_loaders(monkeypatch, lambda **k: "ok", fixtures)
 
         result = run_smoke_check(tmp_path, all_fixtures=False)
@@ -226,7 +227,7 @@ class TestRunSmokeCheck:
         def pipeline_fn(**kwargs):
             raise ValueError("bad")
 
-        fixtures = [{"id": "f1", "context": {}}]
+        fixtures = [Fixture(id="f1", context={}, description="Test fixture 1")]
         self._patch_loaders(monkeypatch, pipeline_fn, fixtures)
 
         result = run_smoke_check(tmp_path, all_fixtures=False)
@@ -236,7 +237,7 @@ class TestRunSmokeCheck:
         def pipeline_fn(**kwargs):
             raise ConnectionError("down")
 
-        fixtures = [{"id": "f1", "context": {}}]
+        fixtures = [Fixture(id="f1", context={}, description="Test fixture 1")]
         self._patch_loaders(monkeypatch, pipeline_fn, fixtures)
 
         result = run_smoke_check(tmp_path, all_fixtures=False)
