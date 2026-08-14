@@ -405,10 +405,10 @@ class TestRuntimeDefaultsBound:
 
     def test_passes_when_config_matches_directive(self):
         """config.py with matching BACKEND/MODEL_ID should pass."""
-        config = 'BACKEND = "ollama"\n' 'MODEL_ID = "granite4.1:3B"\n'
+        config = 'BACKEND = "ollama"\n' 'MODEL_ID = "granite4.1:3b"\n'
         with tempfile.TemporaryDirectory() as tmp:
             pkg = _make_package(Path(tmp), {"config.py": config})
-            _write_directive(pkg, "ollama", "granite4.1:3B")
+            _write_directive(pkg, "ollama", "granite4.1:3b")
             result = lint_runtime_defaults_bound(pkg)
             assert result.verdict == "pass", (
                 f"Matching config and directive should pass; got {result.verdict} "
@@ -417,10 +417,10 @@ class TestRuntimeDefaultsBound:
 
     def test_fails_when_backend_diverges(self):
         """config.py BACKEND != directive backend → fail with actionable message."""
-        config = 'BACKEND = "watsonx"\n' 'MODEL_ID = "granite4.1:3B"\n'
+        config = 'BACKEND = "watsonx"\n' 'MODEL_ID = "granite4.1:3b"\n'
         with tempfile.TemporaryDirectory() as tmp:
             pkg = _make_package(Path(tmp), {"config.py": config})
-            _write_directive(pkg, "ollama", "granite4.1:3B")
+            _write_directive(pkg, "ollama", "granite4.1:3b")
             result = lint_runtime_defaults_bound(pkg)
             assert (
                 result.verdict == "fail"
@@ -442,7 +442,7 @@ class TestRuntimeDefaultsBound:
         config = 'BACKEND = "ollama"\n' 'MODEL_ID = "granite3.3:2b"\n'
         with tempfile.TemporaryDirectory() as tmp:
             pkg = _make_package(Path(tmp), {"config.py": config})
-            _write_directive(pkg, "ollama", "granite4.1:3B")
+            _write_directive(pkg, "ollama", "granite4.1:3b")
             result = lint_runtime_defaults_bound(pkg)
             assert (
                 result.verdict == "fail"
@@ -450,14 +450,14 @@ class TestRuntimeDefaultsBound:
             assert len(result.failures) == 1
             msg = result.failures[0].message
             assert "granite3.3:2b" in msg
-            assert "granite4.1:3B" in msg
+            assert "granite4.1:3b" in msg
 
     def test_fails_when_backend_constant_missing(self):
         """config.py without BACKEND → fail with a clear message naming BACKEND."""
-        config = 'MODEL_ID = "granite4.1:3B"\n'
+        config = 'MODEL_ID = "granite4.1:3b"\n'
         with tempfile.TemporaryDirectory() as tmp:
             pkg = _make_package(Path(tmp), {"config.py": config})
-            _write_directive(pkg, "ollama", "granite4.1:3B")
+            _write_directive(pkg, "ollama", "granite4.1:3b")
             result = lint_runtime_defaults_bound(pkg)
             assert (
                 result.verdict == "fail"
@@ -476,7 +476,7 @@ class TestRuntimeDefaultsBound:
 
     def test_skipped_when_directive_missing(self):
         """No intermediate/runtime_directive.json → skipped with 'older pipeline' reason."""
-        config = 'BACKEND = "ollama"\n' 'MODEL_ID = "granite4.1:3B"\n'
+        config = 'BACKEND = "ollama"\n' 'MODEL_ID = "granite4.1:3b"\n'
         with tempfile.TemporaryDirectory() as tmp:
             pkg = _make_package(Path(tmp), {"config.py": config})
             result = lint_runtime_defaults_bound(pkg)
@@ -492,7 +492,7 @@ class TestRuntimeDefaultsBound:
         """No config.py → skipped."""
         with tempfile.TemporaryDirectory() as tmp:
             pkg = Path(tmp)
-            _write_directive(pkg, "ollama", "granite4.1:3B")
+            _write_directive(pkg, "ollama", "granite4.1:3b")
             result = lint_runtime_defaults_bound(pkg)
             assert (
                 result.verdict == "skipped"
@@ -502,7 +502,7 @@ class TestRuntimeDefaultsBound:
 
     def test_skipped_when_directive_malformed_json(self):
         """Malformed JSON in runtime_directive.json → skipped with parse-error reason."""
-        config = 'BACKEND = "ollama"\n' 'MODEL_ID = "granite4.1:3B"\n'
+        config = 'BACKEND = "ollama"\n' 'MODEL_ID = "granite4.1:3b"\n'
         with tempfile.TemporaryDirectory() as tmp:
             pkg = _make_package(Path(tmp), {"config.py": config})
             (pkg / "intermediate").mkdir(parents=True, exist_ok=True)
@@ -524,11 +524,11 @@ class TestRuntimeDefaultsBound:
         config = (
             "from typing import Final\n"
             'BACKEND: Final[str] = "ollama"\n'
-            'MODEL_ID: Final[str] = "granite4.1:3B"\n'
+            'MODEL_ID: Final[str] = "granite4.1:3b"\n'
         )
         with tempfile.TemporaryDirectory() as tmp:
             pkg = _make_package(Path(tmp), {"config.py": config})
-            _write_directive(pkg, "ollama", "granite4.1:3B")
+            _write_directive(pkg, "ollama", "granite4.1:3b")
             result = lint_runtime_defaults_bound(pkg)
             assert result.verdict == "pass", (
                 f"Annotated BACKEND/MODEL_ID assignments should be recognised; "
@@ -538,10 +538,10 @@ class TestRuntimeDefaultsBound:
 
     def test_handles_plain_assignment(self):
         """config.py using BACKEND = 'ollama' (no annotation) should validate."""
-        config = 'BACKEND = "ollama"\n' 'MODEL_ID = "granite4.1:3B"\n'
+        config = 'BACKEND = "ollama"\n' 'MODEL_ID = "granite4.1:3b"\n'
         with tempfile.TemporaryDirectory() as tmp:
             pkg = _make_package(Path(tmp), {"config.py": config})
-            _write_directive(pkg, "ollama", "granite4.1:3B")
+            _write_directive(pkg, "ollama", "granite4.1:3b")
             result = lint_runtime_defaults_bound(pkg)
             assert result.verdict == "pass", (
                 f"Plain BACKEND/MODEL_ID assignments should be recognised; "
@@ -558,7 +558,7 @@ class TestRunLints:
 
     def test_overall_pass_when_all_pass(self):
         """A compliant synthetic package should yield overall_verdict == 'pass'."""
-        config = 'BACKEND = "ollama"\n' 'MODEL_ID = "granite4.1:3B"\n'
+        config = 'BACKEND = "ollama"\n' 'MODEL_ID = "granite4.1:3b"\n'
         tools = (
             "from pathlib import Path\n"
             "p = Path(__file__).parent / 'scripts' / 'bash' / 'x.sh'\n"
@@ -579,7 +579,7 @@ class TestRunLints:
                     "tools.py": tools,
                 },
             )
-            _write_directive(pkg, "ollama", "granite4.1:3B")
+            _write_directive(pkg, "ollama", "granite4.1:3b")
             result = run_lints(pkg)
             assert result.overall_verdict == "pass", (
                 f"Compliant package should pass overall; got {result.overall_verdict} "

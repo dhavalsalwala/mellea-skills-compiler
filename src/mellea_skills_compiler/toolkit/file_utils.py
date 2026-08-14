@@ -155,7 +155,7 @@ def load_fixtures(pipeline_dir: Path) -> List[Fixture]:
                 fixtures.append(
                     Fixture(id=fixture_id, context=inputs, description=description)
                 )
-    except ImportError:
+    except ImportError as e:
         raise Exception(f"Error loading fixtures from `{fixtures_dir}`. {str(e)}.")
     finally:
         sys.path.pop(0)

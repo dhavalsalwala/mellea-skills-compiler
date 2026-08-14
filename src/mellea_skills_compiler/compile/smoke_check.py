@@ -234,20 +234,18 @@ def _run_one_fixture(
     skill_dir: Optional[Path] = None,
     package_dir: Optional[Path] = None,
 ) -> SmokeFixtureResult:
-    fixture_id = fixture.id
     started = time.time()
     try:
-        context: Dict[str, Any] = fixture.context
         # Run the fixture from the package directory so package-relative input
         # paths (e.g. 'references/example_patient.json' bundled in the package)
         # resolve the same way they do for an installed skill, rather than
         # against the compiler's CWD. contextlib.chdir restores CWD afterward.
         run_dir = package_dir if package_dir is not None else Path.cwd()
         with contextlib.chdir(run_dir):
-            if isinstance(context, dict):
-                pipeline_fn(**context)
+            if isinstance(fixture.context, dict):
+                pipeline_fn(**fixture.context)
             else:
-                pipeline_fn(context)
+                pipeline_fn(fixture.context)
     except BaseException as exc:  # noqa: BLE001 — we re-classify all
         duration = time.time() - started
         skipped_reason = _classify_exception(exc, skill_dir=skill_dir)
@@ -258,13 +256,13 @@ def _run_one_fixture(
                 skipped_reason,
             )
             return SmokeFixtureResult(
-                fixture_id=fixture_id,
+                fixture_id=fixture.id,
                 verdict="skipped",
                 duration_seconds=duration,
                 skipped_reason=skipped_reason,
             )
         return SmokeFixtureResult(
-            fixture_id=fixture_id,
+            fixture_id=fixture.id,
             verdict="failed",
             duration_seconds=duration,
             failure_message=f"{type(exc).__name__}: {exc}",
@@ -273,7 +271,7 @@ def _run_one_fixture(
             ),
         )
     return SmokeFixtureResult(
-        fixture_id=fixture_id,
+        fixture_id=fixture.id,
         verdict="passed",
         duration_seconds=time.time() - started,
     )
