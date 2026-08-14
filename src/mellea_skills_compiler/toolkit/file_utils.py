@@ -3,8 +3,7 @@ import re
 import shutil
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import yaml
 from rich.console import Console
@@ -156,10 +155,8 @@ def load_fixtures(pipeline_dir: Path) -> List[Fixture]:
                 fixtures.append(
                     Fixture(id=fixture_id, context=inputs, description=description)
                 )
-    except ImportError:
-        raise Exception(
-            f"Error loading fixtures from `{fixtures_dir}`. {str(e)}."
-        )
+    except ImportError as e:
+        raise Exception(f"Error loading fixtures from `{fixtures_dir}`. {str(e)}.")
     finally:
         sys.path.pop(0)
 
