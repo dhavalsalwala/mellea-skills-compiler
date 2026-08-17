@@ -294,9 +294,7 @@ class BackendRegistry:
             )
         self._backends[backend_class.identifier()] = backend_class
 
-    def get_backend(
-        self, identifier: CompilationBackendIdentifier
-    ) -> CompilationBackend:
+    def get_backend(self, identifier: str) -> CompilationBackend:
         """Retrieve a backend by identifier.
 
         Args:
