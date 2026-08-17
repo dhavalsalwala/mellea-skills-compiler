@@ -8,7 +8,6 @@ import typer
 from typer.main import Typer
 
 from mellea_skills_compiler.enums import (
-    BackendCompiler,
     GuardianMode,
     InferenceEngineType,
 )
@@ -64,7 +63,7 @@ def compile(
         typer.Option(
             "--timeout",
             "-t",
-            help="Claude session timeout in seconds. Default to 4500 (75min).",
+            help="Compile session timeout in seconds. Default to 4500 (75min).",
         ),
     ] = 4500,
     repair_mode: Annotated[
@@ -75,11 +74,11 @@ def compile(
             help="Identify and correct any errors effectively in Mellea skill compilation.",
         ),
     ] = False,
-    no_run: Annotated[
+    skip_smoke_check: Annotated[
         bool,
         typer.Option(
-            "--no-run",
-            help="Skip the post-compile fixture smoke-check (default ON).",
+            "--skip-smoke-check",
+            help="Skip the post-compile fixture smoke-check (default OFF).",
         ),
     ] = False,
     refresh_cache: Annotated[
@@ -113,7 +112,7 @@ def compile(
             help="Compilation backend to use ['claude', 'bob'].",
         ),
     ] = "claude",
-):
+) -> None:
     """
     Compile Mellea skill specification into a Mellea pipeline using mellea-fy Claude command.
 
@@ -130,7 +129,7 @@ def compile(
             model,
             timeout,
             repair_mode=repair_mode,
-            no_run=no_run,
+            skip_smoke_check=skip_smoke_check,
             refresh_cache=refresh_cache,
             skill_backend=skill_backend,
             skill_model=skill_model,

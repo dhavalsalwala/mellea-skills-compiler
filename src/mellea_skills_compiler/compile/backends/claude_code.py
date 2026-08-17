@@ -122,7 +122,10 @@ class ClaudeCodeBackend:
     """
 
     @staticmethod
-    def name() -> str:
+    def identifier() -> str:
+        return "claude"
+
+    def name(self) -> str:
         """Return human-readable backend name for logging and display.
 
         Returns:
@@ -218,7 +221,7 @@ class ClaudeCodeBackend:
                 model = models[0]
 
             console.print(
-                f"\n[green]{'Repairing' if context.repair_mode else 'Compiling'} using Claude model:[/] {model}\n"
+                f"\n[green]{'Repairing' if context.repair_mode else 'Compiling'} using {self.name()}, model:[/] {model}\n"
             )
 
             # Step 2: Start proxy server to strip context_management from API requests

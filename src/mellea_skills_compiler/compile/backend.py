@@ -25,9 +25,7 @@ Example usage:
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional, Protocol, Type
-
-from mellea_skills_compiler.enums import BackendCompiler
+from typing import Any, List, Optional, Protocol, Type
 
 
 @dataclass
@@ -112,10 +110,11 @@ class CompilationBackend(Protocol):
     this protocol to be compatible with the mellea-skills-compiler framework.
 
     The protocol defines four core methods that backends must provide:
-    1. compile() - Execute the full compilation workflow
-    2. validate_environment() - Check if backend prerequisites are met
-    3. get_backend_name() - Return human-readable backend identifier
-    4. supports_repair_mode() - Indicate repair mode capability
+    1. identifier() - Return identifier for usage across APIs
+    2. name() - Return human-readable backend name for logging purpose
+    3. compile() - Execute the full compilation workflow
+    4. validate_environment() - Check if backend prerequisites are met
+    5. supports_repair_mode() - Indicate repair mode capability
 
     Backends are responsible for:
     - Decomposing skill specifications into Mellea pipeline components
@@ -275,13 +274,10 @@ class BackendRegistry:
         """Initialize an empty backend registry."""
         self._backends: dict[str, Type[CompilationBackend]] = {}
 
-    def register_backend(
-        self, identifier: str, backend_class: Type[CompilationBackend]
-    ) -> None:
+    def register_backend(self, backend_class: Type[CompilationBackend]) -> None:
         """Register a backend implementation.
 
         Args:
-            identifier: Unique identifier for the backend (e.g., "claude", "bob")
             backend_class: Class implementing the CompilationBackend protocol
 
         Raises:
@@ -289,14 +285,18 @@ class BackendRegistry:
 
         Example:
             >>> registry = BackendRegistry()
-            >>> registry.register_backend("claude", ClaudeCodeBackend)
-            >>> registry.register_backend("bob", BobBackend)
+            >>> registry.register_backend(ClaudeCodeBackend)
+            >>> registry.register_backend(BobBackend)
         """
-        if identifier in self._backends:
-            raise ValueError(f"Backend '{identifier}' is already registered")
-        self._backends[identifier] = backend_class
+        if backend_class.identifier() in self._backends:
+            raise ValueError(
+                f"Backend '{backend_class.identifier()}' is already registered"
+            )
+        self._backends[backend_class.identifier()] = backend_class
 
-    def get_backend(self, identifier: BackendCompiler) -> CompilationBackend:
+    def get_backend(
+        self, identifier: CompilationBackendIdentifier
+    ) -> CompilationBackend:
         """Retrieve a backend by identifier.
 
         Args:
@@ -322,7 +322,7 @@ class BackendRegistry:
             )
         return self._backends[identifier]()
 
-    def list_backends(self) -> list[str]:
+    def list_backends(self) -> List[str]:
         """List all registered backend identifiers.
 
         Returns:

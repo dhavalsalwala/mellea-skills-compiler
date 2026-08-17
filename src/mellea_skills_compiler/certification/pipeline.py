@@ -49,6 +49,7 @@ from mellea_skills_compiler.inference import InferenceService
 from mellea_skills_compiler.models import (
     Fixture,
     FixtureResult,
+    GuardianVerdict,
     PolicyManifest,
     RunResult,
 )
@@ -566,14 +567,14 @@ def full_pipeline(
                 warning_msg += f"  • {warning}\n"
             LOGGER.warning(warning_msg)
 
-        has_flagged = verdict_summary["flagged_verdicts"]
-        has_failed = verdict_summary["failed_verdicts"]
+        has_flagged: List[GuardianVerdict] = verdict_summary["flagged_verdicts"]
+        has_failed: List[GuardianVerdict] = verdict_summary["failed_verdicts"]
 
         if has_failed:
             LOGGER.warning("STATUS: RISK ASSESSMENT FAILURE — review audit trail")
-        elif has_flagged:
+        if has_flagged:
             LOGGER.warning("STATUS: RISKS DETECTED — review audit trail")
-        else:
+        if not (has_flagged or has_failed):
             LOGGER.info("ALL STATUS CHECKS PASSED")
 
         # Return RunResult with the summary of the run

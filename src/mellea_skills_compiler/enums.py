@@ -99,12 +99,3 @@ class HookStage(StrEnum):
     @classmethod
     def list(cls) -> List[str]:
         return list(map(lambda c: c.value, cls))
-
-
-class BackendCompiler(StrEnum):
-
-    CLAUDE_CODE = "claude"
-    IBM_BOB = "bob"
-
-    def __str__(self) -> Literal["claude", "bob"]:
-        return self.value
