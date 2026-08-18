@@ -10,7 +10,7 @@ Available backends:
 
 from mellea_skills_compiler.compile.backend import global_registry
 from mellea_skills_compiler.compile.backends.bob import BOBBackend
-from mellea_skills_compiler.compile.backends.claude_code import ClaudeCodeBackend
+from mellea_skills_compiler.compile.backends.claude import ClaudeCodeBackend
 
 
 # Register the Claude Code backend

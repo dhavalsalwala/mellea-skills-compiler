@@ -257,7 +257,7 @@ class BackendRegistry:
 
     Example:
         >>> from mellea_skills_compiler.compile.backend import BackendRegistry
-        >>> from mellea_skills_compiler.compile.backends.claude_code import ClaudeCodeBackend
+        >>> from mellea_skills_compiler.compile.backends.claude import ClaudeCodeBackend
         >>>
         >>> registry = BackendRegistry()
         >>> registry.register_backend("claude", ClaudeCodeBackend)

@@ -2,13 +2,15 @@ from enum import Enum, StrEnum, auto
 from typing import List, Literal
 
 
-class ClaudeResponseType(StrEnum):
+class ClaudeMessageType(StrEnum):
     ASSISTANT = auto()
     SYSTEM = auto()
-
-
-class ClaudeResponseMessageType(StrEnum):
     TEXT = auto()
+
+
+class BOBMessageType(StrEnum):
+    MESSAGE = auto()
+    TOOL_USE = auto()
 
 
 class InferenceEngineType(Enum):

@@ -25,7 +25,7 @@ export ANTHROPIC_BASE_URL = ""
 
 ### IBM Bob configuration
 
-Please ensure that the IBM Bob shell is installed by following the guide here: https://bob.ibm.com/docs/shell/getting-started/install-and-setup
+Please ensure that the IBM Bob shell is installed by following the guide here: https://bob.ibm.com/docs/shell/getting-started/install-and-setup. Only Bob v2.x.x is supported.
 
 IBM Bob authentication works via IBMid, SSO and API key authentication. Please check https://bob.ibm.com/docs/shell/getting-started/install-and-setup#authentication for more details. Set relevant platform-specific environment variables to communicate with your IBM Bob platform.
 

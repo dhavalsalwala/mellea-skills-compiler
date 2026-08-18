@@ -254,7 +254,7 @@ def compile(
     backend_impl: CompilationBackend = global_registry.get_backend(identifier=backend)
     is_valid, error_msg = backend_impl.validate_environment()
     if not is_valid:
-        raise RuntimeError(f"Provided backend '{backend}' not available: {error_msg}")
+        raise RuntimeError(f"Provided backend '{backend}' not available - {error_msg}")
 
     # print mellea-fy header
     console.print()

@@ -1,77 +1,36 @@
-"""BoB backend implementation for mellea-skills compilation.
+"""Bob backend implementation for mellea-skills compilation.
 
-This module implements the CompilationBackend protocol using Anthropic's BoB CLI
+This module implements the CompilationBackend protocol using Anthropic's Bob CLI
 as the compilation engine. It wraps the existing subprocess-based approach that invokes
 the `/mellea-fy` and `/mellea-fy-repair` slash commands.
 
 The BOBBackend is responsible for:
-- Validating that BoB CLI is installed and configured
-- Setting up a local proxy to strip context_management from API requests
-- Invoking BoB with appropriate arguments and system prompts
-- Parsing the JSON streaming output to track compilation progress
+- Validating that Bob CLI is installed and configured
+- Invoking Bob with appropriate arguments and system prompts
 - Handling timeouts and errors gracefully
-- Cleaning up resources (proxy server, subprocesses) on completion or failure
+- Cleaning up resources (subprocesses) on completion or failure
 
 This backend requires:
-- BoB CLI installed and accessible in PATH
+- Bob CLI installed and accessible in PATH
 - Valid Anthropic API credentials (ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN)
 - Network access to Anthropic API (or configured ANTHROPIC_BASE_URL)
-
-Example usage:
-    >>> from mellea_skills_compiler.compile.backends.claude_code import BOBBackend
-    >>> from mellea_skills_compiler.compile.backend import CompilationContext
-    >>>
-    >>> backend = BOBBackend()
-    >>> is_valid, error = backend.validate_environment()
-    >>> if not is_valid:
-    ...     print(f"Cannot use BoB: {error}")
-    ...     exit(1)
-    >>>
-    >>> context = CompilationContext(
-    ...     spec_path=Path("weather/spec.md"),
-    ...     package_dir=Path("weather_mellea"),
-    ...     intermediate_dir=Path("weather_mellea/intermediate"),
-    ...     model="claude-3-7-sonnet-20250219",
-    ...     timeout=300,
-    ... )
-    >>>
-    >>> result = backend.compile(context)
-    >>> if result.success:
-    ...     print(f"Compiled successfully to {result.package_dir}")
-    ... else:
-    ...     print(f"Compilation failed: {result.error_message}")
 """
 
 import json
-import logging
-import os
 import shutil
-import socketserver
 import subprocess
 import threading
 import time
 from pathlib import Path
 from typing import Optional
-from urllib.parse import urlparse
 
-from anthropic import Anthropic
 from rich.console import Console
 
 from mellea_skills_compiler.compile.backend import (
-    CompilationBackend,
     CompilationContext,
     CompilationResult,
 )
-from mellea_skills_compiler.compile.claude_directives import (
-    build_system_prompt,
-    write_compile_settings,
-)
-from mellea_skills_compiler.compile.proxy import ContextMgmtStrippingProxy
-from mellea_skills_compiler.enums import (
-    ClaudeResponseMessageType,
-    ClaudeResponseType,
-    InferenceModel,
-)
+from mellea_skills_compiler.enums import BOBMessageType
 from mellea_skills_compiler.toolkit.logging import configure_logger
 
 
@@ -79,25 +38,45 @@ LOGGER = configure_logger()
 console = Console(log_time=True)
 
 
+def authenticate_bob(prompt: str = "2+3=") -> bool:
+    """Test the bob run command and report success/failure."""
+    try:
+        result = subprocess.run(
+            ["bob", "run", prompt], capture_output=True, text=True, timeout=30
+        )
+
+        if result.returncode == 0:
+            LOGGER.debug(f"✓ SUCCESS: bob run completed")
+            return True, result.stdout
+        else:
+            LOGGER.debug(f"✗ FAILED: bob run exited with code {result.returncode}")
+            return False, result.stderr
+
+    except subprocess.TimeoutExpired:
+        return False, "✗ FAILED: bob run timed out after 30 seconds"
+    except Exception as e:
+        return False, f"✗ FAILED: Unexpected error: {e}"
+
+
 class BOBBackend:
-    """BoB backend for mellea-skills compilation.
+    """Bob backend for mellea-skills compilation.
 
     This backend implements the CompilationBackend protocol by wrapping the existing
-    BoB subprocess approach. It invokes the BoB CLI with the
+    Bob subprocess approach. It invokes the Bob CLI with the
     `/mellea-fy` or `/mellea-fy-repair` slash commands to decompose skill specifications
     into Mellea pipeline components.
 
     The backend handles:
     - Model validation via Anthropic API
     - Local proxy server setup to strip context_management from requests
-    - BoB subprocess invocation with appropriate arguments
+    - Bob subprocess invocation with appropriate arguments
     - JSON streaming output parsing to track compilation progress
     - Timeout handling and graceful termination
     - Error handling and cleanup of resources
 
     Architecture:
     - Uses a local proxy server to modify API requests before forwarding to Anthropic
-    - Runs BoB in project mode (-p) with restricted tools (Read, Write, Edit)
+    - Runs Bob in project mode (-p) with restricted tools (Read, Write, Edit)
     - Streams JSON output to track compilation steps and detect completion
     - Enforces deny rules via settings file to prevent overwriting wrapper-rendered files
 
@@ -110,20 +89,25 @@ class BOBBackend:
         >>> # Validate environment before use
         >>> is_valid, error = backend.validate_environment()
         >>> if not is_valid:
-        ...     raise RuntimeError(f"BoB not available: {error}")
+        ...     raise RuntimeError(f"Bob not available: {error}")
         >>>
         >>> # Execute compilation
         >>> context = CompilationContext(
         ...     spec_path=Path("weather/spec.md"),
         ...     package_dir=Path("weather_mellea"),
-        ...     intermediate_dir=Path("weather_mellea/intermediate"),
-        ...     model="claude-3-7-sonnet-20250219",
+        ...     timeout=300,
+        ...     repair_mode=False,
         ... )
         >>> result = backend.compile(context)
     """
 
     @staticmethod
     def identifier() -> str:
+        """Internal identifer for the given compiler
+
+        Returns:
+            str: Return Compiler identifer - "bob"
+        """
         return "bob"
 
     def name(self) -> str:
@@ -140,16 +124,16 @@ class BOBBackend:
         return "IBM Bob"
 
     def compile(self, context: CompilationContext) -> CompilationResult:
-        """Execute the full compilation workflow using BoB.
+        """Execute the full compilation workflow using Bob.
 
         This method orchestrates the 10-step compilation process by invoking the
-        BoB CLI with the `/mellea-fy` or `/mellea-fy-repair` slash command.
+        Bob CLI with the `/mellea-fy` or `/mellea-fy-repair` slash command.
 
         The compilation workflow:
         1. Validate the specified model is available via Anthropic API
         2. Start a local proxy server to strip context_management from requests
-        3. Build the BoB command-line arguments
-        4. Invoke BoB subprocess with system prompt and settings
+        3. Build the Bob command-line arguments
+        4. Invoke Bob subprocess with system prompt and settings
         5. Parse JSON streaming output to track progress
         6. Handle timeout if context.timeout > 0
         7. Detect compilation completion or errors
@@ -166,7 +150,7 @@ class BOBBackend:
             result.error_message contains a description of what went wrong.
 
         Raises:
-            RuntimeError: If BoB is not available or configured incorrectly
+            RuntimeError: If Bob is not available or configured incorrectly
             TimeoutError: If compilation exceeds context.timeout (when timeout > 0)
 
         Example:
@@ -174,8 +158,6 @@ class BOBBackend:
             >>> context = CompilationContext(
             ...     spec_path=Path("weather/spec.md"),
             ...     package_dir=Path("weather_mellea"),
-            ...     intermediate_dir=Path("weather_mellea/intermediate"),
-            ...     model="claude-3-7-sonnet-20250219",
             ...     timeout=300,
             ...     repair_mode=False,
             ... )
@@ -186,26 +168,31 @@ class BOBBackend:
             ...     print(f"Compilation failed: {result.error_message}")
         """
         process = None
-
         try:
             console.print(
                 f"\n[green]{'Repairing' if context.repair_mode else 'Compiling'} using {self.name()}\n"
             )
 
-            # Step 5: Build BoB command-line arguments
-            claude_argv = self._build_bob_argv(
+            if context.model:
+                LOGGER.warning(
+                    f"The '--model:{context.model}' value will be ignored for IBM Bob compilation. "
+                    "IBM Bob automatically selects the appropriate model based on the task requirements."
+                )
+
+            # Step 5: Build Bob command-line arguments
+            bob_argv = self._build_bob_argv(
                 spec_path=context.spec_path,
                 repair_mode=context.repair_mode,
             )
 
-            # Step 6: Execute BoB subprocess
+            # Step 6: Execute Bob subprocess
             start_time = time.time()
             processing = console.status(
                 "[italic bold yellow]Processing...[/]", spinner_style="status.spinner"
             )
 
             process = subprocess.Popen(
-                claude_argv,
+                bob_argv,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
@@ -227,6 +214,7 @@ class BOBBackend:
 
             # Step 7: Parse streaming JSON output
             processing.start()
+            event_message: str = ""
             while True:
                 elapsed = time.time() - start_time
                 if context.timeout > 0 and elapsed >= context.timeout:
@@ -243,8 +231,13 @@ class BOBBackend:
 
                 if output:
                     try:
-                        # response = json.loads(output.strip())
-                        console.print(f"[cyan]{output.strip()}[/]")
+                        response = json.loads(output.strip())
+                        event_type = response.get("type")
+                        if event_type == BOBMessageType.MESSAGE:
+                            event_message += response.get("content", " ")
+                        elif event_message and event_type == BOBMessageType.TOOL_USE:
+                            console.print(f"[cyan]{event_message}[/]\n")
+                            event_message = ""
                     except json.decoder.JSONDecodeError as e:
                         console.print("Claude message parsing error: " + str(e))
 
@@ -284,44 +277,52 @@ class BOBBackend:
                     process.kill()
 
     def validate_environment(self) -> tuple[bool, Optional[str]]:
-        """Check if BoB CLI and API credentials are available.
+        """Check if Bob CLI and API credentials are available.
 
-        This method verifies that all prerequisites for using BoB are met:
-        1. BoB CLI is installed and accessible in PATH
-        2. Anthropic API credentials are configured (ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN)
-        3. The API credentials are valid by checking that models can be listed
+        This method verifies that all prerequisites for using Bob are met:
+        1. Bob CLI is installed and accessible in PATH
+        2. Bob SSO authentication or Bob API key (BOB_API_KEY) is is configured.
 
         This should be called before attempting compilation to provide early,
         actionable error messages to users.
 
         Returns:
             A tuple of ``(is_valid, error_message)`` where ``is_valid`` is ``True``
-            when BoB is usable and ``error_message`` contains a remediation
+            when Bob is usable and ``error_message`` contains a remediation
             hint when validation fails.
 
         Example:
             >>> backend = BOBBackend()
             >>> is_valid, error = backend.validate_environment()
             >>> if not is_valid:
-            ...     print(f"Cannot use BoB backend: {error}")
+            ...     print(f"Cannot use Bob backend: {error}")
         """
         if shutil.which("bob") is None:
             return False, (
-                "BoB CLI not found in PATH. "
-                "Install it from https://docs.anthropic.com/en/docs/claude-code."
+                "Bob CLI not found in PATH. "
+                "Install it from https://bob.ibm.com/docs/shell/getting-started/install-and-setup"
             )
+
+        with console.status(
+            "[italic bold yellow]Authenticating Bob...[/]",
+            spinner_style="status.spinner",
+        ):
+            status, msg = authenticate_bob()
+
+        if not status:
+            return False, msg
 
         return True, None
 
     def supports_repair_mode(self) -> bool:
-        """Indicate that BoB supports repair mode.
+        """Indicate that Bob supports repair mode.
 
-        BoB supports repair mode via the `/mellea-fy-repair` slash command,
+        Bob supports repair mode via the `/mellea-fy-repair` slash command,
         which attempts to fix compilation errors by analyzing failed artifacts and
         regenerating specific components.
 
         Returns:
-            True (BoB supports repair mode)
+            True (Bob supports repair mode)
 
         Example:
             >>> backend = BOBBackend()
@@ -336,22 +337,16 @@ class BOBBackend:
         spec_path: Path,
         repair_mode: bool,
     ) -> list[str]:
-        """Build the command-line arguments for invoking BoB.
+        """Build the command-line arguments for invoking Bob.
 
         Constructs the full argv list for subprocess.Popen, including:
-        - Project mode (-p)
-        - Model selection
-        - System prompt injection
-        - Allowed tools (Read, Write, Edit)
+        - Trust workspace
+        - Accept License
         - Output format (stream-json)
-        - Permission mode (acceptEdits)
-        - Settings file (if provided)
         - The mellea-fy or mellea-fy-repair command
+        - Spec Path
 
         Args:
-            model: Claude model identifier (e.g., "claude-3-7-sonnet-20250219")
-            system_prompt: System prompt to inject with runtime defaults
-            compile_settings_path: Optional path to settings file with deny rules
             spec_path: Path to the skill specification file
             repair_mode: Whether to use /mellea-fy-repair instead of /mellea-fy
 
@@ -359,24 +354,23 @@ class BOBBackend:
             List of command-line arguments ready for subprocess.Popen
 
         Example:
-            >>> argv = self._build_claude_argv(
-            ...     system_prompt="Use backend=anthropic...",
-            ...     compile_settings_path=Path("settings.json"),
+            >>> argv = self._build_bob_argv(
             ...     spec_path=Path("weather/spec.md"),
             ...     repair_mode=False,
             ... )
-            >>> # argv = ["claude", "-p", "--model", "claude-3-7-sonnet-20250219", ...]
+            >>> # argv = ["bob", "run", "--trust", "--accept-license", "--format", "stream-json", "/mellea-fy", "skills/weather"]
         """
-        bob_argv = [
+        bob_argv: List[str] = [
             "bob",
-            f"/mellea-fy {spec_path}",
-            "--yolo",
-            "--allowed-tools",
-            "Read,Write,Edit",
-            "--output-format",
-            "text",
+            "run",
+            "--trust",
+            "--accept-license",
+            "--format",
+            "stream-json",
+            "/mellea-fy-repair" if repair_mode else "/mellea-fy",
+            f"{spec_path}",
         ]
 
-        LOGGER.debug(f"BoB command - {" ".join(bob_argv)}")
+        LOGGER.debug(f"Bob command - {' '.join(bob_argv)}")
 
         return bob_argv
