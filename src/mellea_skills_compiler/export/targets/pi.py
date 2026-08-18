@@ -194,7 +194,7 @@ def _invocation_args(pattern: str, params: list[dict]) -> str:
     if pattern == "no_args":
         return ""
     if pattern == "single_positional":
-        return "sys.argv[2]"
+        return ", ".join(f"sys.argv[{i + 2}]" for i in range(len(params)))
     required = [p for p in params if p["required"]]
     if not required:
         return ""
