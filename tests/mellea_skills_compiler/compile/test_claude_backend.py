@@ -14,8 +14,8 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from mellea_skills_compiler.compile.backend import CompilationContext, CompilationResult
-from mellea_skills_compiler.compile.backends.claude_code import ClaudeCodeBackend
-from mellea_skills_compiler.enums import ClaudeResponseMessageType, ClaudeResponseType
+from mellea_skills_compiler.compile.backends.claude import ClaudeCodeBackend
+from mellea_skills_compiler.enums import ClaudeMessageType
 
 
 @pytest.fixture
@@ -64,8 +64,8 @@ class TestBackendMetadata:
 class TestValidateEnvironment:
     """Test environment validation logic."""
 
-    @patch("mellea_skills_compiler.compile.backends.claude_code.shutil.which")
-    @patch("mellea_skills_compiler.compile.backends.claude_code.Anthropic")
+    @patch("mellea_skills_compiler.compile.backends.claude.shutil.which")
+    @patch("mellea_skills_compiler.compile.backends.claude.Anthropic")
     def test_validate_environment_success(
         self, mock_anthropic_class, mock_which, backend
     ):
@@ -87,7 +87,7 @@ class TestValidateEnvironment:
             assert is_valid is True
             assert error is None
 
-    @patch("mellea_skills_compiler.compile.backends.claude_code.shutil.which")
+    @patch("mellea_skills_compiler.compile.backends.claude.shutil.which")
     def test_validate_environment_missing_claude_cli(self, mock_which, backend):
         """Test validation fails when claude CLI is not in PATH."""
         mock_which.return_value = None
@@ -99,7 +99,7 @@ class TestValidateEnvironment:
         assert "Claude Code CLI not found" in error
         assert "https://docs.anthropic.com" in error
 
-    @patch("mellea_skills_compiler.compile.backends.claude_code.shutil.which")
+    @patch("mellea_skills_compiler.compile.backends.claude.shutil.which")
     def test_validate_environment_missing_api_key(self, mock_which, backend):
         """Test validation fails when API credentials are not set."""
         mock_which.return_value = "/usr/local/bin/claude"
@@ -113,8 +113,8 @@ class TestValidateEnvironment:
             assert "Anthropic credentials are not configured" in error
             assert "ANTHROPIC_API_KEY" in error or "ANTHROPIC_AUTH_TOKEN" in error
 
-    @patch("mellea_skills_compiler.compile.backends.claude_code.shutil.which")
-    @patch("mellea_skills_compiler.compile.backends.claude_code.Anthropic")
+    @patch("mellea_skills_compiler.compile.backends.claude.shutil.which")
+    @patch("mellea_skills_compiler.compile.backends.claude.Anthropic")
     def test_validate_environment_api_error(
         self, mock_anthropic_class, mock_which, backend
     ):
@@ -135,8 +135,8 @@ class TestValidateEnvironment:
             assert "Unable to validate Anthropic credentials" in error
             assert "API connection failed" in error
 
-    @patch("mellea_skills_compiler.compile.backends.claude_code.shutil.which")
-    @patch("mellea_skills_compiler.compile.backends.claude_code.Anthropic")
+    @patch("mellea_skills_compiler.compile.backends.claude.shutil.which")
+    @patch("mellea_skills_compiler.compile.backends.claude.Anthropic")
     def test_validate_environment_no_models(
         self, mock_anthropic_class, mock_which, backend
     ):
@@ -159,13 +159,13 @@ class TestValidateEnvironment:
 class TestCompileMethod:
     """Test the compile() method with various scenarios."""
 
-    @patch("mellea_skills_compiler.compile.backends.claude_code.Anthropic")
-    @patch("mellea_skills_compiler.compile.backends.claude_code.subprocess.Popen")
+    @patch("mellea_skills_compiler.compile.backends.claude.Anthropic")
+    @patch("mellea_skills_compiler.compile.backends.claude.subprocess.Popen")
     @patch(
-        "mellea_skills_compiler.compile.backends.claude_code.socketserver.ThreadingTCPServer"
+        "mellea_skills_compiler.compile.backends.claude.socketserver.ThreadingTCPServer"
     )
-    @patch("mellea_skills_compiler.compile.backends.claude_code.build_system_prompt")
-    @patch("mellea_skills_compiler.compile.backends.claude_code.write_compile_settings")
+    @patch("mellea_skills_compiler.compile.backends.claude.build_system_prompt")
+    @patch("mellea_skills_compiler.compile.backends.claude.write_compile_settings")
     def test_compile_success(
         self,
         mock_write_settings,
@@ -200,11 +200,11 @@ class TestCompileMethod:
         mock_stdout_lines = [
             json.dumps(
                 {
-                    "type": ClaudeResponseType.ASSISTANT,
+                    "type": ClaudeMessageType.ASSISTANT,
                     "message": {
                         "content": [
                             {
-                                "type": ClaudeResponseMessageType.TEXT,
+                                "type": ClaudeMessageType.TEXT,
                                 "text": "Starting compilation...",
                             }
                         ]
@@ -252,7 +252,7 @@ class TestCompileMethod:
         mock_server.shutdown.assert_called_once()
         mock_server.server_close.assert_called_once()
 
-    @patch("mellea_skills_compiler.compile.backends.claude_code.Anthropic")
+    @patch("mellea_skills_compiler.compile.backends.claude.Anthropic")
     def test_compile_no_models_available(
         self, mock_anthropic_class, backend, mock_context
     ):
@@ -267,7 +267,7 @@ class TestCompileMethod:
         assert result.success is False
         assert "No claude models available" in result.error_message
 
-    @patch("mellea_skills_compiler.compile.backends.claude_code.Anthropic")
+    @patch("mellea_skills_compiler.compile.backends.claude.Anthropic")
     def test_compile_invalid_model(self, mock_anthropic_class, backend, mock_context):
         """Test compilation fails when specified model is not available."""
         # Mock Anthropic API returns different models
@@ -286,15 +286,15 @@ class TestCompileMethod:
         assert "Invalid Claude model provided" in result.error_message
         assert "claude-nonexistent-model" in result.error_message
 
-    @patch("mellea_skills_compiler.compile.backends.claude_code.console")
-    @patch("mellea_skills_compiler.compile.backends.claude_code.Anthropic")
-    @patch("mellea_skills_compiler.compile.backends.claude_code.subprocess.Popen")
+    @patch("mellea_skills_compiler.compile.backends.claude.console")
+    @patch("mellea_skills_compiler.compile.backends.claude.Anthropic")
+    @patch("mellea_skills_compiler.compile.backends.claude.subprocess.Popen")
     @patch(
-        "mellea_skills_compiler.compile.backends.claude_code.socketserver.ThreadingTCPServer"
+        "mellea_skills_compiler.compile.backends.claude.socketserver.ThreadingTCPServer"
     )
-    @patch("mellea_skills_compiler.compile.backends.claude_code.build_system_prompt")
-    @patch("mellea_skills_compiler.compile.backends.claude_code.write_compile_settings")
-    @patch("mellea_skills_compiler.compile.backends.claude_code.time.time")
+    @patch("mellea_skills_compiler.compile.backends.claude.build_system_prompt")
+    @patch("mellea_skills_compiler.compile.backends.claude.write_compile_settings")
+    @patch("mellea_skills_compiler.compile.backends.claude.time.time")
     def test_compile_timeout(
         self,
         mock_time,
@@ -367,14 +367,14 @@ class TestCompileMethod:
         # Verify process was terminated (may be called in timeout handler and finally block)
         assert mock_process.terminate.call_count >= 1
 
-    @patch("mellea_skills_compiler.compile.backends.claude_code.console")
-    @patch("mellea_skills_compiler.compile.backends.claude_code.Anthropic")
-    @patch("mellea_skills_compiler.compile.backends.claude_code.subprocess.Popen")
+    @patch("mellea_skills_compiler.compile.backends.claude.console")
+    @patch("mellea_skills_compiler.compile.backends.claude.Anthropic")
+    @patch("mellea_skills_compiler.compile.backends.claude.subprocess.Popen")
     @patch(
-        "mellea_skills_compiler.compile.backends.claude_code.socketserver.ThreadingTCPServer"
+        "mellea_skills_compiler.compile.backends.claude.socketserver.ThreadingTCPServer"
     )
-    @patch("mellea_skills_compiler.compile.backends.claude_code.build_system_prompt")
-    @patch("mellea_skills_compiler.compile.backends.claude_code.write_compile_settings")
+    @patch("mellea_skills_compiler.compile.backends.claude.build_system_prompt")
+    @patch("mellea_skills_compiler.compile.backends.claude.write_compile_settings")
     def test_compile_subprocess_error(
         self,
         mock_write_settings,
@@ -442,14 +442,14 @@ class TestCompileMethod:
         assert "return code 1" in result.error_message
         assert "compilation failed" in result.error_message
 
-    @patch("mellea_skills_compiler.compile.backends.claude_code.console")
-    @patch("mellea_skills_compiler.compile.backends.claude_code.Anthropic")
-    @patch("mellea_skills_compiler.compile.backends.claude_code.subprocess.Popen")
+    @patch("mellea_skills_compiler.compile.backends.claude.console")
+    @patch("mellea_skills_compiler.compile.backends.claude.Anthropic")
+    @patch("mellea_skills_compiler.compile.backends.claude.subprocess.Popen")
     @patch(
-        "mellea_skills_compiler.compile.backends.claude_code.socketserver.ThreadingTCPServer"
+        "mellea_skills_compiler.compile.backends.claude.socketserver.ThreadingTCPServer"
     )
-    @patch("mellea_skills_compiler.compile.backends.claude_code.build_system_prompt")
-    @patch("mellea_skills_compiler.compile.backends.claude_code.write_compile_settings")
+    @patch("mellea_skills_compiler.compile.backends.claude.build_system_prompt")
+    @patch("mellea_skills_compiler.compile.backends.claude.write_compile_settings")
     def test_compile_repair_mode(
         self,
         mock_write_settings,
@@ -520,13 +520,13 @@ class TestCompileMethod:
         assert any("mellea-fy-repair" in arg for arg in argv)
         assert result.success is True
 
-    @patch("mellea_skills_compiler.compile.backends.claude_code.Anthropic")
-    @patch("mellea_skills_compiler.compile.backends.claude_code.subprocess.Popen")
+    @patch("mellea_skills_compiler.compile.backends.claude.Anthropic")
+    @patch("mellea_skills_compiler.compile.backends.claude.subprocess.Popen")
     @patch(
-        "mellea_skills_compiler.compile.backends.claude_code.socketserver.ThreadingTCPServer"
+        "mellea_skills_compiler.compile.backends.claude.socketserver.ThreadingTCPServer"
     )
-    @patch("mellea_skills_compiler.compile.backends.claude_code.build_system_prompt")
-    @patch("mellea_skills_compiler.compile.backends.claude_code.write_compile_settings")
+    @patch("mellea_skills_compiler.compile.backends.claude.build_system_prompt")
+    @patch("mellea_skills_compiler.compile.backends.claude.write_compile_settings")
     def test_compile_exception_handling(
         self,
         mock_write_settings,
@@ -553,9 +553,9 @@ class TestHelperMethods:
     """Test private helper methods."""
 
     @patch(
-        "mellea_skills_compiler.compile.backends.claude_code.socketserver.ThreadingTCPServer"
+        "mellea_skills_compiler.compile.backends.claude.socketserver.ThreadingTCPServer"
     )
-    @patch("mellea_skills_compiler.compile.backends.claude_code.threading.Thread")
+    @patch("mellea_skills_compiler.compile.backends.claude.threading.Thread")
     def test_setup_proxy_server(self, mock_thread, mock_tcp_server, backend):
         """Test proxy server setup."""
         # Mock server
