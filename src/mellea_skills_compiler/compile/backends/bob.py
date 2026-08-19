@@ -11,9 +11,8 @@ The BOBBackend is responsible for:
 - Cleaning up resources (subprocesses) on completion or failure
 
 This backend requires:
-- Bob CLI installed and accessible in PATH
-- Valid Anthropic API credentials (ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN)
-- Network access to Anthropic API (or configured ANTHROPIC_BASE_URL)
+- Bob shell installed and accessible in PATH
+- Valid IBM Bob API key - BOB_API_KEY
 """
 
 import json
@@ -67,18 +66,10 @@ class BOBBackend:
     into Mellea pipeline components.
 
     The backend handles:
-    - Model validation via Anthropic API
-    - Local proxy server setup to strip context_management from requests
     - Bob subprocess invocation with appropriate arguments
     - JSON streaming output parsing to track compilation progress
     - Timeout handling and graceful termination
     - Error handling and cleanup of resources
-
-    Architecture:
-    - Uses a local proxy server to modify API requests before forwarding to Anthropic
-    - Runs Bob in project mode (-p) with restricted tools (Read, Write, Edit)
-    - Streams JSON output to track compilation steps and detect completion
-    - Enforces deny rules via settings file to prevent overwriting wrapper-rendered files
 
     Attributes:
         None (stateless backend, all state passed via CompilationContext)
@@ -131,14 +122,13 @@ class BOBBackend:
 
         The compilation workflow:
         1. Validate the specified model is available via Anthropic API
-        2. Start a local proxy server to strip context_management from requests
-        3. Build the Bob command-line arguments
-        4. Invoke Bob subprocess with system prompt and settings
-        5. Parse JSON streaming output to track progress
-        6. Handle timeout if context.timeout > 0
-        7. Detect compilation completion or errors
-        8. Clean up proxy server and subprocess
-        9. Return CompilationResult with success status and artifacts
+        2. Build the Bob command-line arguments
+        3. Invoke Bob subprocess with system prompt and settings
+        4. Parse JSON streaming output to track progress
+        5. Handle timeout if context.timeout > 0
+        6. Detect compilation completion or errors
+        7. Clean up proxy server and subprocess
+        8. Return CompilationResult with success status and artifacts
 
         Args:
             context: Compilation parameters including paths, model, timeout, etc.
@@ -313,24 +303,6 @@ class BOBBackend:
             return False, msg
 
         return True, None
-
-    def supports_repair_mode(self) -> bool:
-        """Indicate that Bob supports repair mode.
-
-        Bob supports repair mode via the `/mellea-fy-repair` slash command,
-        which attempts to fix compilation errors by analyzing failed artifacts and
-        regenerating specific components.
-
-        Returns:
-            True (Bob supports repair mode)
-
-        Example:
-            >>> backend = BOBBackend()
-            >>> if backend.supports_repair_mode():
-            ...     print("Repair mode available")
-            ...     context.repair_mode = True
-        """
-        return True
 
     def _build_bob_argv(
         self,

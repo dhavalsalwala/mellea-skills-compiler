@@ -138,6 +138,15 @@ class CompilationBackend(Protocol):
         ...         return False
     """
 
+    @staticmethod
+    def identifier() -> str:
+        """Return internal identifer for the given compiler
+
+        Returns:
+            A short compiler identifer e.g. bob, claude
+        """
+        ...
+
     def name(self) -> str:
         """Return human-readable backend name for logging and display.
 
@@ -304,11 +313,11 @@ class BackendRegistry:
             An instance of the requested backend
 
         Raises:
-            KeyError: If no backend with this identifier is registered
+            ValueError: If no backend with this identifier is registered
 
         Example:
             >>> registry = BackendRegistry()
-            >>> registry.register_backend("claude", ClaudeCodeBackend)
+            >>> registry.register_backend(ClaudeCodeBackend)
             >>> backend = registry.get_backend("claude")
             >>> print(backend.name())
             Claude Code

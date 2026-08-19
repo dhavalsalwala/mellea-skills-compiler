@@ -415,7 +415,7 @@ def full_pipeline(
             ) from e
 
         # Write fixture results if available
-        fixture_summary: Counter[str] = None
+        fixture_summary: Optional[Counter[str]] = None
         if fixture_results:
             fixture_summary = Counter(f.status for f in fixture_results)
             fixture_results_path: Path = audit_dir / "fixture_results.json"
