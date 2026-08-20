@@ -1,4 +1,4 @@
-"""Claude Code target: translate a LoadedContext into a TranslationPlan.
+"""Pi target: translate a LoadedContext into a TranslationPlan.
 
 Supported modalities:
   synchronous_oneshot   — sync Python subprocess via scripts/run.sh
@@ -27,7 +27,15 @@ SUPPORTED_MODALITIES = {
 }
 
 
-def translate_claude_code(loaded: "LoadedContext") -> "TranslationPlan":
+def _to_pi_name(s: str) -> str:
+    s = s.lower()
+    s = re.sub(r"[^a-z0-9]+", "-", s)
+    s = re.sub(r"-+", "-", s).strip("-")
+    s = s[:64].strip("-")
+    return s or "pipeline"
+
+
+def translate_pi(loaded: "LoadedContext") -> "TranslationPlan":
     from mellea_skills_compiler.export.exporter import AdapterFile, TranslationPlan
 
     manifest = loaded.manifest
@@ -35,13 +43,13 @@ def translate_claude_code(loaded: "LoadedContext") -> "TranslationPlan":
     warnings: list[str] = []
 
     package_name = manifest["package_name"]
-    skill_name = _to_snake(package_name)
+    skill_name = _to_pi_name(package_name)
     modality = manifest.get("modality", "synchronous_oneshot")
     export_version = _export_version()
 
     if modality not in SUPPORTED_MODALITIES:
         warnings.append(
-            f"Modality '{modality}' is not fully supported by the claude-code target. "
+            f"Modality '{modality}' is not fully supported by the pi target. "
             "Falling back to synchronous_oneshot adapter."
         )
         modality = "synchronous_oneshot"
@@ -102,12 +110,6 @@ def translate_claude_code(loaded: "LoadedContext") -> "TranslationPlan":
 # ---------------------------------------------------------------------------
 
 
-def _to_snake(s: str) -> str:
-    s = re.sub(r"[^a-zA-Z0-9_]", "_", s)
-    s = re.sub(r"_+", "_", s).strip("_").lower()
-    return s or "pipeline"
-
-
 def _export_version() -> str:
     from mellea_skills_compiler.export.exporter import EXPORT_VERSION
 
@@ -138,7 +140,8 @@ def _get_description(manifest: dict) -> str:
 
 
 # ---------------------------------------------------------------------------
-# scripts/run.sh renderers
+# scripts/run.sh renderers (verbatim from claude_code.py — invocation shape
+# is bash + Python for both targets, not Claude-Code-specific)
 # ---------------------------------------------------------------------------
 
 
@@ -192,7 +195,6 @@ def _invocation_args(pattern: str, params: list[dict]) -> str:
         return ""
     if pattern == "single_positional":
         return ", ".join(f"sys.argv[{i + 2}]" for i in range(len(params)))
-    # dict_unpack — pass required params as positional in order
     required = [p for p in params if p["required"]]
     if not required:
         return ""
@@ -289,7 +291,6 @@ def _streaming_call(entry_function: str, pattern: str, params: list[dict]) -> st
         return f"    async for chunk in {entry_function}():\n"
     if pattern == "single_positional":
         return f"    async for chunk in {entry_function}(sys.argv[2]):\n"
-    # dict_unpack — pass required params as named kwargs in declaration order
     required = [p for p in params if p["required"]]
     if not required:
         return f"    async for chunk in {entry_function}():\n"
@@ -379,6 +380,8 @@ def _run_sh_conversational_session(
 # SKILL.md
 # ---------------------------------------------------------------------------
 
+_MAX_DESCRIPTION_LEN = 1024
+
 
 def _render_skill_md(
     *,
@@ -388,7 +391,9 @@ def _render_skill_md(
     sig: "ParsedSignature",
 ) -> str:
     description = _get_description(manifest)
-    display_name = skill_name.replace("_", " ").title()
+    if len(description) > _MAX_DESCRIPTION_LEN:
+        description = description[:_MAX_DESCRIPTION_LEN]
+    display_name = skill_name.replace("-", " ").title()
 
     arg_note = _skill_md_arg_note(sig, modality)
 
@@ -396,6 +401,7 @@ def _render_skill_md(
         f"---\n"
         f"name: {skill_name}\n"
         f"description: {description}\n"
+        f'compatibility: "Requires Python >=3.11 and the bundled package installed."\n'
         f"---\n"
         f"\n"
         f"# {display_name}\n"
@@ -424,7 +430,6 @@ def _skill_md_arg_note(sig: "ParsedSignature", modality: str) -> str:
         required = [p for p in sig.params if p["required"]]
         arg_name = required[0]["name"] if required else sig.params[0]["name"]
         return f" Pass `{arg_name}` as the first positional argument."
-    # dict_unpack
     required = [p for p in sig.params if p["required"]]
     if required:
         args_str = " ".join(f"<{p['name']}>" for p in required)
@@ -452,9 +457,9 @@ def _render_pyproject_toml(
         'build-backend = "setuptools.build_meta"\n'
         "\n"
         "[project]\n"
-        f'name = "{skill_name}-claude-code-adapter"\n'
+        f'name = "{skill_name}-pi-adapter"\n'
         'version = "0.1.0"\n'
-        f'description = "Claude Code adapter for {skill_name} Mellea pipeline"\n'
+        f'description = "Pi adapter for {skill_name} Mellea pipeline"\n'
         'requires-python = ">=3.11"\n'
         "dependencies = [\n" + "".join(deps) + "]\n"
         "\n"
@@ -503,7 +508,7 @@ def _render_readme(
     sig: "ParsedSignature",
     has_policy_manifest: bool = False,
 ) -> str:
-    display_name = skill_name.replace("_", " ").title()
+    display_name = skill_name.replace("-", " ").title()
     modality_note = _MODALITY_NOTES.get(
         modality, _MODALITY_NOTES["synchronous_oneshot"]
     )
@@ -527,9 +532,9 @@ def _render_readme(
         )
 
     return (
-        f"# {display_name} — Claude Code Adapter\n"
+        f"# {display_name} — Pi Adapter\n"
         f"\n"
-        f"Exported Claude Code adapter for the `{skill_name}` Mellea pipeline.\n"
+        f"Exported Pi adapter for the `{skill_name}` Mellea pipeline.\n"
         f"\n"
         f"## Installation\n"
         f"\n"
@@ -540,14 +545,17 @@ def _render_readme(
         f"\n"
         f"## Registration\n"
         f"\n"
-        f"Copy this directory to your Claude Code skills folder:\n"
+        f"Copy this directory to your Pi skills folder:\n"
         f"\n"
         f"```bash\n"
-        f"# Project-level (recommended):\n"
-        f"cp -r . .claude/skills/{skill_name}/\n"
+        f"# Project-level:\n"
+        f"cp -r . .pi/skills/{skill_name}/\n"
+        f"\n"
+        f"# Or shared across agents:\n"
+        f"cp -r . .agents/skills/{skill_name}/\n"
         f"\n"
         f"# Or user-level (available in all projects):\n"
-        f"cp -r . ~/.claude/skills/{skill_name}/\n"
+        f"cp -r . ~/.pi/agent/skills/{skill_name}/\n"
         f"```\n"
         f"\n"
         f"## Invocation\n"
@@ -584,18 +592,20 @@ def _render_readme(
 def _deployment_guidance(modality: str, skill_name: str) -> str:
     guides = {
         "synchronous_oneshot": (
-            f"Install with `pip install -e .` and register under `.claude/skills/{skill_name}/`. "
-            "Invoke via `bash scripts/run.sh <args>`."
+            f"Install with `pip install -e .` and register under `.pi/skills/{skill_name}/` "
+            f"(or `.agents/skills/{skill_name}/`). Invoke via `bash scripts/run.sh <args>`."
         ),
         "streaming": (
-            f"Install with `pip install -e .` and register under `.claude/skills/{skill_name}/`. "
-            "Output streams incrementally — suitable for long-running or token-by-token responses."
+            f"Install with `pip install -e .` and register under `.pi/skills/{skill_name}/` "
+            f"(or `.agents/skills/{skill_name}/`). Output streams incrementally — suitable for "
+            "long-running or token-by-token responses."
         ),
         "conversational_session": (
-            f"Install with `pip install -e .` and register under `.claude/skills/{skill_name}/`. "
-            "Pass `--session` JSON array across calls to maintain conversation history."
+            f"Install with `pip install -e .` and register under `.pi/skills/{skill_name}/` "
+            f"(or `.agents/skills/{skill_name}/`). Pass `--session` JSON array across calls to "
+            "maintain conversation history."
         ),
     }
     return guides.get(
-        modality, f"Install with `pip install -e .` and register the skill."
+        modality, f"Install with `pip install -e .` and register the skill under your pi skills root."
     )

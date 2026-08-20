@@ -263,9 +263,10 @@ def compile(
             )
         )
     else:
+        display_name = spec_path.name.replace("_", " ").title()
         rprint(
             Panel(
-                f"Name: {spec_path.name.replace("_"," ").title()}\nPath: {str(spec_path)}",
+                f"Name: {display_name}\nPath: {str(spec_path)}",
                 title="Specification",
             )
         )

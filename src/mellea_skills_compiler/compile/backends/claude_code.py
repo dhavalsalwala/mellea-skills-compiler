@@ -525,9 +525,8 @@ class ClaudeCodeBackend:
         if compile_settings_path is not None:
             claude_argv.extend(["--settings", str(compile_settings_path)])
 
-        claude_argv.append(
-            f"'{"./mellea-fy-repair" if repair_mode else "./mellea-fy"} {str(spec_path)}'"
-        )
+        mellea_fy_command = "./mellea-fy-repair" if repair_mode else "./mellea-fy"
+        claude_argv.append(f"'{mellea_fy_command} {str(spec_path)}'")
 
         LOGGER.debug("Claude Code command: %s", " ".join(claude_argv))
 
