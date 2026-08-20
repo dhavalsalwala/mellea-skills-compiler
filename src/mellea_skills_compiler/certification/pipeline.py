@@ -439,7 +439,7 @@ def full_pipeline(
                 return RunResult.failed(
                     run_dir=audit_dir,
                     input_parameters=input_parameters,
-                    guardian_verdicts=None,
+                    guardian_verdicts=guardian_plugin.summary(),
                     error_details={"type": "Fixture", "message": message},
                 )
 
