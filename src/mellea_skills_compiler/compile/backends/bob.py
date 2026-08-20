@@ -1,6 +1,6 @@
 """Bob backend implementation for mellea-skills compilation.
 
-This module implements the CompilationBackend protocol using Anthropic's Bob CLI
+This module implements the CompilationBackend protocol using IBM Bob CLI
 as the compilation engine. It wraps the existing subprocess-based approach that invokes
 the `/mellea-fy` and `/mellea-fy-repair` slash commands.
 
@@ -21,7 +21,7 @@ import subprocess
 import threading
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional, Tuple
 
 from rich.console import Console
 
@@ -37,7 +37,9 @@ LOGGER = configure_logger()
 console = Console(log_time=True)
 
 
-def authenticate_bob(prompt: str = "2+3=") -> bool:
+def authenticate_bob(
+    prompt: str = "2+3=",
+) -> Tuple[bool, str]:
     """Test the bob run command and report success/failure."""
     try:
         result = subprocess.run(
@@ -165,7 +167,7 @@ class BOBBackend:
 
             if context.model:
                 LOGGER.warning(
-                    f"The '--model:{context.model}' value will be ignored for IBM Bob compilation. "
+                    f"The '--model:{context.model}' value will be ignored for compilation. "
                     "IBM Bob automatically selects the appropriate model based on the task requirements."
                 )
 
@@ -226,10 +228,21 @@ class BOBBackend:
                         if event_type == BOBMessageType.MESSAGE:
                             event_message += response.get("content", " ")
                         elif event_message and event_type == BOBMessageType.TOOL_USE:
-                            console.print(f"[cyan]{event_message}[/]\n")
+                            console.print(f"\n[cyan]{event_message}[/]")
                             event_message = ""
+                        elif event_type == BOBMessageType.ERROR:
+                            LOGGER.error(response.get("message", ""))
+                        elif event_type == BOBMessageType.RESULT:
+                            console.print(f"[blue]Summary:[/]\n")
+                            mins, secs = divmod(
+                                response["stats"]["duration_ms"] / 1000, 60
+                            )
+                            console.print(
+                                f"[cyan]Status: {response.get("status")}[/]\n"
+                                f"[cyan]Total Time ⏱️: {int(mins)}m {int(secs)}s.[/]\n"
+                            )
                     except json.decoder.JSONDecodeError as e:
-                        console.print("Claude message parsing error: " + str(e))
+                        console.print("Bob message parsing error - " + str(e))
 
             # Wait for stderr thread
             stderr_thread.join(timeout=1)

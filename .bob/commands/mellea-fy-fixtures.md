@@ -1,10 +1,12 @@
 # Melleafy Step 4: Fixture Generation
 
-**Version**: 4.2.0 | **Prereq**: Step 3 complete (skeleton emitted with finalised `run_pipeline` signature) | **Produces**: `fixtures_emission.json`
+**Version**: 4.2.1 | **Prereq**: Step 3 complete (skeleton emitted with finalised `run_pipeline` signature) | **Produces**: `fixtures_emission.json`
 
 > **Schema**: Output `intermediate/fixtures_emission.json` MUST conform to `.bob/schemas/fixtures_emission.schema.json`
 
-> **Output path rule** (Rule OUT-4): Step 4 produces **ONLY** `fixtures_emission.json` in the intermediate directory. This JSON file contains fixture specifications that will be used by downstream processes. **DO NOT generate any Python source files** — no `fixtures/` directory, no `.py` files, no `__init__.py`. The fixture source code generation is handled by a separate process outside this skill.
+> **Output path rule** (Rule OUT-4): Step 4 produces **ONLY** `intermediate/fixtures_emission.json` in the intermediate directory. This JSON file contains fixture specifications that will be used by downstream processes. **DO NOT generate any Python source files** — no `fixtures/` directory, no `.py` files, no `__init__.py`. The fixture source code generation is handled by a separate process outside this skill.
+
+> **CRITICAL**: This step generates ONLY the JSON specification file.
 
 Step 4 generates fixture specifications for 5–8 test fixtures covering ≥3 C-categories. The output is a single JSON file conforming to the schema.
 
@@ -86,7 +88,7 @@ Example — a ticket-triage skill with C1 (persona), C2 (operating rules), and C
 
 ## Cross-checks before Step 4 declares done
 
-The schema (`fixtures_emission.schema.json`) and writer (`fixtures_writer.py`) together enforce most of the contract structurally. The model is responsible only for content correctness:
+The schema (`fixtures_emission.schema.json`) and `intermediate/fixtures_emission.json` together enforce most of the contract structurally. The model is responsible only for content correctness:
 
 - Fixture count: 5 ≤ N ≤ 8 (enforced by `minItems`/`maxItems` in the schema)
 - At least 3 distinct C-categories exercised across all fixtures (model self-check; documented in `coverage_doc`)

@@ -38,8 +38,8 @@ Run these steps in order. Each step has a dedicated sub-command with the full sp
  Step 3: Emit skeleton files
     │   → empty Python files with structure (run_pipeline signature locked here)
     │
- Step 4: Generate fixtures
-    │   → fixtures/ subpackage (5-8 fixtures, ≥3 C-categories)
+ Step 4: Generate fixtures specification
+    │   → intermediate/fixtures_emission.json (5-8 fixtures, ≥3 C-categories)
     │   Sub-command: /mellea-fy-fixtures
     │   (uses Step 3 skeleton's run_pipeline signature as grounding source)
     ▼
@@ -47,7 +47,7 @@ Run these steps in order. Each step has a dedicated sub-command with the full sp
     │   Phase A: [schemas.py, config.py, requirements.py, slots.py, tools.py/constrained_slots.py, mobjects.py, loader.py — ║ parallel ║]
     │   Phase B: pipeline.py (after Phase A)
     │   Phase C: main.py (after Phase B)
-    │   → populated Python files (fixtures/ available as grounding context)
+    │   → populated intermediate/fixtures_emission.json (available as grounding context)
     │   Sub-command: /mellea-fy-generate  (covers Steps 3 + 5)
     ▼
  Step 6: Emit supporting artifacts
@@ -82,7 +82,7 @@ Run these steps in order. Each step has a dedicated sub-command with the full sp
 | `/mellea-fy-inventory`  | Steps 1a+1b: file scan + element tagging                                       | `inventory.json`                                 |
 | `/mellea-fy-map`        | Step 2: tag → Mellea primitive routing                                         | `element_mapping.json`                           |
 | `/mellea-fy-deps`       | Step 2.5: dependency audit + disposition commit                                | `dependency_plan.json`                           |
-| `/mellea-fy-fixtures`   | Step 4: fixture generation (after skeleton, before bodies)                     | `fixtures/` subpackage                           |
+| `/mellea-fy-fixtures`   | Step 4: fixture specification generation                           | `intermediate/fixtures_emission.json`            |
 | `/mellea-fy-generate`   | Steps 3+5: skeleton emit + body generation                                     | All Python files                                 |
 | `/mellea-fy-artifacts`  | Step 6: mapping report + melleafy.json + SKILL.md (if absent, non-.md sources) | `mapping_report.md`, `melleafy.json`, `SKILL.md` |
 | `/mellea-fy-validate`   | Step 7: 14 formal lints                                                        | `step_7_report.json`                             |
@@ -100,6 +100,8 @@ intermediate/
   element_mapping_amendments.json   ← from Step 2.5d
   dependency_plan.json
   mellea_api_ref.json               ← from Step 2.5e
+  fixtures_emission.json            ← from Step 4
+  config_emission.json              ← from Step 5
   element_mapping_judgment_calls.json
   coverage_report.json
   step_1b_trace.json
@@ -182,11 +184,6 @@ These parallelizations are expected behavior, not fallback optimizations — iss
     ├── references/                     ← if <skill-root>/references/ exists
     ├── assets/                         ← if <skill-root>/assets/ exists
     │
-    │   ── Test fixtures ──
-    ├── fixtures/                       ← Step 4
-    │   ├── __init__.py
-    │   └── <case>.py ...
-    │
     │   ── Intermediate artifacts ──
     └── intermediate/
         ├── classification.json         ← Step 0
@@ -195,6 +192,8 @@ These parallelizations are expected behavior, not fallback optimizations — iss
         ├── element_mapping_amendments.json ← Step 2.5d
         ├── dependency_plan.json        ← Step 2.5c
         ├── mellea_api_ref.json         ← Step 2.5e
+        ├── fixtures_emission.json      ← Step 4
+        ├── config_emission.json        ← Step 5
         ├── element_mapping_judgment_calls.json
         ├── coverage_report.json
         ├── step_1b_trace.json

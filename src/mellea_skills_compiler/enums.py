@@ -11,6 +11,8 @@ class ClaudeMessageType(StrEnum):
 class BOBMessageType(StrEnum):
     MESSAGE = auto()
     TOOL_USE = auto()
+    ERROR = auto()
+    RESULT = auto()
 
 
 class InferenceEngineType(Enum):

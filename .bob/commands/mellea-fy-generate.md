@@ -25,7 +25,6 @@ Step 3 emits skeleton files (imports, signatures, docstring placeholders) from t
 | `loader.py`            | When any C3 element has disposition `load_from_disk`                                     |
 | `main.py`              | Always (CLI entry point)                                                                 |
 | `pyproject.toml`       | Always                                                                                   |
-| `fixtures/`            | Always (5–8 fixtures, generated in Step 4)                                               |
 | `SETUP.md`             | When any C4, C5, C9, non-bundled C6, C7, non-default C8, or host-needing modality        |
 | `README.md`            | Always                                                                                   |
 | `melleafy.json`        | Always (skeleton in Step 3; finalised in Step 6)                                         |
@@ -297,7 +296,7 @@ Read once; apply throughout all file generation.
 
 If `grounding_unavailable: true`, fall back to the KB patterns in `/mellea-fy-behaviours` and the static signature tables in Rules 5-2 and 5-4.
 
-**4. Use canonical fixture pairs from `<package_name>/fixtures/` as concrete examples** (already produced by Step 4) for the file being generated. Use these as the reference for correct Mellea usage, not training memory.
+**4. Use canonical fixture pairs from `intermediate/fixtures_emission.json` as concrete examples** (already produced by Step 4) for the file being generated. Use these as the reference for correct Mellea usage, not training memory.
 
 **5. Behavioral guidance is in `/mellea-fy-behaviours`.** Read it once before generating any file body.
 
@@ -465,7 +464,7 @@ def _get_user_approval(draft: str) -> str:
 ## Cross-checks before Step 5 declares done
 
 - `intermediate/mellea_api_ref.json` was consulted before code body generation (or `grounding_unavailable: true` was noted and KB fallback used)
-- Fixture pair examples from `<package_name>/fixtures/` (Step 4) were used as grounding context for each generated file (invariant 4)
+- Fixture pair examples from `intermediate/fixtures_emission.json` (Step 4) were used as grounding context for each generated file (invariant 4)
 
 ---
 
