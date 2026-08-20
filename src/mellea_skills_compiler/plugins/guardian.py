@@ -138,8 +138,10 @@ def _call_guardian(
                 LOGGER.warning(
                     f"Retrying failed guardian assessment - {risk_name}...attempt: {attempt}"
                 )
+                preview_source = assistant_text if assistant_text else input_text
+                preview = preview_source.replace("\n", " ")[0:90]
                 console.print(
-                    f"[white]  risk={messages[0]['content']}\n  label={label}\n  preview={assistant_text.replace("\n", " ")[0:90] if assistant_text else input_text.replace("\n", " ")[0:90]}[/]"
+                    f'[white]  risk={messages[0]["content"]}\n  label={label}\n  preview={preview}[/]'
                 )
 
                 try:
@@ -201,8 +203,9 @@ def _run_guardian_post_checks(
         HookStage.POST, risks, input_text, inference_engine, assistant_text
     )
     for verdict in verdicts:
+        output_preview = assistant_text.replace("\n", " ")[0:90]
         console.print(
-            f"Plugin-[green]\\[guardian-post][/]\n  [white]risk={verdict.risk}\n  label={verdict.label}\n  output_preview={assistant_text.replace("\n", " ")[0:90]}[/]"
+            f"Plugin-[green]\\[guardian-post][/]\n  [white]risk={verdict.risk}\n  label={verdict.label}\n  output_preview={output_preview}[/]"
         )
     return verdicts
 
@@ -252,8 +255,9 @@ def _run_guardian_pre_checks(
         HookStage.PRE, risks, input_text, inference_engine, assistant_text
     )
     for verdict in verdicts:
+        input_preview = input_text.replace("\n", " ")[0:90]
         console.print(
-            f"Plugin-[blue]\\[guardian-pre][/]\n  [white]risk={verdict.risk}\n  label={verdict.label}\n  input_preview={input_text.replace("\n", " ")[0:90]}[/]"
+            f"Plugin-[blue]\\[guardian-pre][/]\n  [white]risk={verdict.risk}\n  label={verdict.label}\n  input_preview={input_preview}[/]"
         )
     return verdicts
 
@@ -369,8 +373,11 @@ class GuardianAuditPlugin(
         tool_output = str(payload.tool_output or "")
         latency = payload.execution_time_ms
 
+        result_summary = (
+            "error" if not payload.success else f"{len(tool_output)} bytes"
+        )
         LOGGER.info(
-            f"[guardian-post-tool] {tool_name} — {'error' if not payload.success else str(len(tool_output)) + " bytes"}, {latency}ms"
+            f"[guardian-post-tool] {tool_name} — {result_summary}, {latency}ms"
         )
 
         if not (not tool_output or not payload.success):

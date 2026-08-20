@@ -711,7 +711,7 @@ def _render_pyproject_toml(
 _MODALITY_INVOCATION = {
     "synchronous_oneshot": (
         "import asyncio\n\n"
-        'result = asyncio.run(graph.ainvoke({{"input": {example_input}}}))\n'
+        'result = asyncio.run(graph.ainvoke({{"{state_key}": {example_input}}}))\n'
         'print(result["output"])'
     ),
     "streaming": (
@@ -761,10 +761,15 @@ def _render_readme(
     has_policy_manifest: bool = False,
 ) -> str:
     example_input = _build_example_input(sig)
+    state_key = (
+        sig.params[0]["name"]
+        if sig.pattern == "single_positional" and sig.params
+        else "input"
+    )
     invocation = _MODALITY_INVOCATION.get(
         modality, _MODALITY_INVOCATION["synchronous_oneshot"]
     )
-    invocation = invocation.format(example_input=example_input)
+    invocation = invocation.format(example_input=example_input, state_key=state_key)
 
     env_section = ""
     if env_vars:

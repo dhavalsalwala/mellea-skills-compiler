@@ -405,7 +405,7 @@ def export(
         typer.Option(
             "--target",
             "-t",
-            help="Deployment target: langgraph | claude-code | mcp",
+            help="Deployment target: langgraph | claude-code | mcp | pi",
         ),
     ],
     force: Annotated[
@@ -426,7 +426,7 @@ def export(
     ] = False,
 ):
     """
-    Export a compiled Mellea skill to a deployment target (langgraph, claude-code, or mcp).
+    Export a compiled Mellea skill to a deployment target (langgraph, claude-code, mcp, or pi).
 
     Output is written to <package_name>/<package_name>-<target> inside the skill directory.
 

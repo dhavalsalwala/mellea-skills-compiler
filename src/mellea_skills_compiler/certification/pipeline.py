@@ -535,9 +535,9 @@ def full_pipeline(
         LOGGER.info("Audit events: %d", len(audit_entries))
         LOGGER.info("")
         LOGGER.info("Compliance:")
-        LOGGER.info(f"  AUTOMATED={counts["AUTOMATED"]}")
-        LOGGER.info(f"  PARTIAL={counts["PARTIAL"]}")
-        LOGGER.info(f"  MANUAL={counts["MANUAL"]}")
+        LOGGER.info(f"  AUTOMATED={counts['AUTOMATED']}")
+        LOGGER.info(f"  PARTIAL={counts['PARTIAL']}")
+        LOGGER.info(f"  MANUAL={counts['MANUAL']}")
         LOGGER.info("")
         LOGGER.info(f"Artifacts written to {audit_dir}")
         for file in [f for f in audit_dir.iterdir() if f.is_file()]:
