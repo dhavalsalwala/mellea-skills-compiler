@@ -50,7 +50,7 @@ The `run_pipeline` function signature and `main.py` shape vary by modality from 
 
 ### Step 3a-pre: Bundled assets are already mirrored (Rule OUT-6)
 
-Companion directories from the skill root (`scripts/`, `references/`, `assets/`) are mirrored into `<package_name>/` **deterministically by the compile pipeline**, _before_ mellea-fy runs. The model does not perform the copy — it is plumbing handled by `mellea_skills_compiler.compile.mellea_skills._mirror_companion_dirs`. By the time Step 3 begins, any companion directory that existed at the skill root is already present at `<package_name>/<dir>/` and can be referenced directly.
+Companion directories from the skill root (`scripts/`, `references/`, `assets/`) are mirrored into `<package_name>/` **deterministically by the compile pipeline**, _before_ mellea-fy runs. The model does not perform the copy — it is plumbing handled by `mellea_skills_compiler.compile.compiler._mirror_companion_dirs`. By the time Step 3 begins, any companion directory that existed at the skill root is already present at `<package_name>/<dir>/` and can be referenced directly.
 
 The model's responsibility is **path-resolution discipline**: any code emitted in Step 5 that loads or invokes a bundled asset MUST resolve its path package-relatively via `Path(__file__).parent / "<dir>/<file>"`, **not** via a user-supplied `repo_root` argument or the process working directory. This invariant is what makes the generated package self-contained — a `pip install`-ed package, or one invoked from any cwd, finds its bundled assets via Python's own module-location machinery.
 

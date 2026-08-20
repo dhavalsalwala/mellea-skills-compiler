@@ -122,9 +122,9 @@ def compile(
     smoke-check passed (or skipped because backend was unreachable).
     """
     try:
-        from mellea_skills_compiler.compile import mellea_skills
+        from mellea_skills_compiler.compile import compiler
 
-        mellea_skills.compile(
+        compiler.compile(
             Path(spec_path),
             model,
             timeout,
@@ -175,11 +175,9 @@ def validate(
       12 — smoke-check failed (lint pass, but a fixture raised an exception)
     """
     try:
-        from mellea_skills_compiler.compile import mellea_skills
+        from mellea_skills_compiler.compile import compiler
 
-        mellea_skills.validate(
-            Path(pipeline_dir), no_run=no_run, all_fixtures=all_fixtures
-        )
+        compiler.validate(Path(pipeline_dir), no_run=no_run, all_fixtures=all_fixtures)
     except Exception as e:
         LOGGER.error(str(e))
         raise typer.Exit(code=1)
