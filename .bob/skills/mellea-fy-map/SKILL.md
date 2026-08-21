@@ -10,7 +10,7 @@ metadata:
 
 **Version**: 4.1.0 | **Prereq**: `inventory.json`, `classification.json` | **Produces**: `element_mapping.json`
 
-> **Schema**: Output `intermediate/element_mapping.json` MUST conform to `.bob/schemas/element_mapping.schema.json`.
+> **Schema**: Output `intermediate/element_mapping.json` MUST conform to `schemas/element_mapping.schema.json`.
 
 Step 2 reads `inventory.json` and produces `element_mapping.json` — the routing decision for every element: which file in the generated package, which symbol, which Mellea primitive.
 

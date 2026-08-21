@@ -10,7 +10,7 @@ metadata:
 
 **Version**: 4.1.2 | **Prereq**: Step 5 complete | **Produces**: `mapping_report.md`, `melleafy.json`, `SETUP.md`, `README.md`, `SKILL.md` (non-.md sources only)
 
-> **Schema**: Output `melleafy.json` MUST conform to `.bob/schemas/melleafy.schema.json`.
+> **Schema**: Output `melleafy.json` MUST conform to `schemas/melleafy.schema.json`.
 
 > **Output path rule** (Rule OUT-3): All files produced by Step 6 (`mapping_report.md`, `melleafy.json`, `SETUP.md`, `README.md`, `SKILL.md`) are written **inside `<package_name>/`** — NOT at the skill root. See `mellea-fy.md` §Output directory layout for the full tree.
 

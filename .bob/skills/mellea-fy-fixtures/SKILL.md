@@ -10,7 +10,7 @@ metadata:
 
 **Version**: 4.2.1 | **Prereq**: Step 3 complete (skeleton emitted with finalised `run_pipeline` signature) | **Produces**: `fixtures_emission.json`
 
-> **Schema**: Output `intermediate/fixtures_emission.json` MUST conform to `.bob/schemas/fixtures_emission.schema.json`
+> **Schema**: Output `intermediate/fixtures_emission.json` MUST conform to `schemas/fixtures_emission.schema.json`
 
 > **Output path rule** (Rule OUT-4): Step 4 produces **ONLY** `intermediate/fixtures_emission.json` in the intermediate directory. This JSON file contains fixture specifications that will be used by downstream processes. **DO NOT generate any Python source files** — no `fixtures/` directory, no `.py` files, no `__init__.py`. The fixture source code generation is handled by a separate process outside this skill.
 
@@ -18,7 +18,7 @@ metadata:
 
 Step 4 generates fixture specifications for 5–8 test fixtures covering ≥3 C-categories. The output is a single JSON file conforming to the schema.
 
-> **Rule 4-1 — JSON-only fixture specification**: Generate all fixture specifications in a single JSON object conforming to `.bob/schemas/fixtures_emission.schema.json`. The invocation receives the `run_pipeline` signature, the element mapping summary, and the C-category coverage requirement, and returns **one JSON object** — not Python source. **This skill's output is ONLY the JSON file.** Do not generate Python fixture files, do not create a `fixtures/` directory, do not write `__init__.py` or individual fixture modules.
+> **Rule 4-1 — JSON-only fixture specification**: Generate all fixture specifications in a single JSON object conforming to `schemas/fixtures_emission.schema.json`. The invocation receives the `run_pipeline` signature, the element mapping summary, and the C-category coverage requirement, and returns **one JSON object** — not Python source. **This skill's output is ONLY the JSON file.** Do not generate Python fixture files, do not create a `fixtures/` directory, do not write `__init__.py` or individual fixture modules.
 
 ---
 

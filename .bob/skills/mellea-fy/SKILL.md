@@ -10,7 +10,7 @@ metadata:
 
 **Spec version**: 4.3.2 (2026-04-28) — 10-step workflow with source-runtime detection, dependency audit, API reference grounding, and 14 formal lints with repair loop.
 
-You are a Mellea decomposition specialist. Given a path to an agent `.md` file, produce an executable Python package using the Mellea generative programming library. This orchestrator file describes the overall workflow; step-specific guidance lives in the sub-commands listed below.
+You are a Mellea decomposition specialist. Given a path to an agent `.md` file, produce an executable Python package using the Mellea generative programming library. This orchestrator file describes the overall workflow; step-specific guidance lives in the Sub-skills listed below.
 
 **Your input**: `$ARGUMENTS` — path to an agent `.md` file (or workspace directory for multi-file source runtimes).
 **Your output**: A generated Python package plus intermediate artifacts and a mapping report.
@@ -19,7 +19,7 @@ You are a Mellea decomposition specialist. Given a path to an agent `.md` file, 
 
 ## The 10-step workflow
 
-Run these steps in order. Each step has a dedicated sub-command with the full specification.
+Run these steps in order. Each step has a dedicated Sub-skill with the full specification.
 
 ```
 [source spec on disk]
@@ -27,28 +27,28 @@ Run these steps in order. Each step has a dedicated sub-command with the full sp
     ▼
  Step 0: Classify the spec along five axes
     │   → classification.json
-    │   Sub-command: /mellea-fy-classify
+    │   Sub-skill: /mellea-fy-classify
     ▼
  Steps 1a + 1b: Inventory files → tag elements + assign C1-C9 categories
     │   Step 1b Pass 1 (multi-file): [per-file section discovery — ║ parallel ║]
     │   → inventory.json
-    │   Sub-command: /mellea-fy-inventory
+    │   Sub-skill: /mellea-fy-inventory
     ▼
  Step 2: Map elements to Mellea primitives
     │   Judgment calls: [all independent elements — ║ parallel ║]
     │   → element_mapping.json (TOOL_TEMPLATE entries provisional)
-    │   Sub-command: /mellea-fy-map
+    │   Sub-skill: /mellea-fy-map
     ▼
  Step 2.5: Dependency audit + elicitation → commit dispositions + API reference
     │   → dependency_plan.json, element_mapping_amendments.json, mellea_api_ref.json
-    │   Sub-command: /mellea-fy-deps   ← NEW in v4.0 — do not skip
+    │   Sub-skill: /mellea-fy-deps   ← NEW in v4.0 — do not skip
     ▼
  Step 3: Emit skeleton files
     │   → empty Python files with structure (run_pipeline signature locked here)
     │
  Step 4: Generate fixtures specification
     │   → intermediate/fixtures_emission.json (5-8 fixtures, ≥3 C-categories)
-    │   Sub-command: /mellea-fy-fixtures
+    │   Sub-skill: /mellea-fy-fixtures
     │   (uses Step 3 skeleton's run_pipeline signature as grounding source)
     ▼
  Step 5: Generate per-element code bodies (3-phase structure)
@@ -56,19 +56,19 @@ Run these steps in order. Each step has a dedicated sub-command with the full sp
     │   Phase B: pipeline.py (after Phase A)
     │   Phase C: main.py (after Phase B)
     │   → populated intermediate/fixtures_emission.json (available as grounding context)
-    │   Sub-command: /mellea-fy-generate  (covers Steps 3 + 5)
+    │   Sub-skill: /mellea-fy-generate  (covers Steps 3 + 5)
     ▼
  Step 6: Emit supporting artifacts
     │   Narrative batching: [classification_narrative + deferred_feature_entry + judgment_call_explanation (≤3) — ║ parallel ║ where applicable]
     │   → mapping_report.md, melleafy.json, SETUP.md, README.md
     │   → SKILL.md (non-.md sources only — CLI compatibility shim, WIP)
-    │   Sub-command: /mellea-fy-artifacts
+    │   Sub-skill: /mellea-fy-artifacts
     ▼
  Step 7: Static validation (14 formal lints)
     │   Tier 1: [all .py files — ast.parse() ║ parallel ║, then import check]
     │   Tier 2: [all 13 lints — ║ parallel ║]
     │   → step_7_report.json
-    │   Sub-command: /mellea-fy-validate
+    │   Sub-skill: /mellea-fy-validate
     │
     ├── [PASS] ──────────────────────────────────────────────────────────────►
     │                                                                          ▼
@@ -82,9 +82,9 @@ Run these steps in order. Each step has a dedicated sub-command with the full sp
                        → halt, preserve .melleafy-partial/
 ```
 
-## Sub-command reference
+## Sub-skill reference
 
-| Sub-command             | Covers                                                                         | Key outputs                                      |
+| Sub-skill             | Covers                                                                         | Key outputs                                      |
 | ----------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------ |
 | `/mellea-fy-classify`   | Step 0: 5-axis classification                                                  | `classification.json`                            |
 | `/mellea-fy-inventory`  | Steps 1a+1b: file scan + element tagging                                       | `inventory.json`                                 |

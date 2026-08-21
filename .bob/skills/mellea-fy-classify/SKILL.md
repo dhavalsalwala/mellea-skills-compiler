@@ -10,7 +10,7 @@ metadata:
 
 **Version**: 4.0.0 | **Prereq**: None | **Produces**: `classification.json`
 
-> **Schema**: Output `intermediate/classification.json` MUST conform to `.bob/schemas/classification.schema.json`.
+> **Schema**: Output `intermediate/classification.json` MUST conform to `schemas/classification.schema.json`.
 
 Classify the source spec along five axes before any other step runs. The classification drives dialect selection (Step 1a), category defaults (Step 2.5), entry-point shape (Step 3), and modality validation (Step 7).
 
@@ -93,7 +93,8 @@ Each detection signal has a weight:
 | Runtime             | Strong signals                                          | Medium signals                                          | Weak signals                    |
 | ------------------- | ------------------------------------------------------- | ------------------------------------------------------- | ------------------------------- |
 | `agent_skills_std`  | `---` frontmatter + `name:`, `description:` YAML fields | `.md` extension, `model:` frontmatter key               | Single-file, no Python          |
-| `claude_code`       | `CLAUDE.md`, `.bob/commands/` directory              | `bash_command:`, `allowed_tools:`                       | Markdown-primary                |
+| `claude_code`       | `CLAUDE.md`, `.claude/commands/` directory              | `bash_command:`, `allowed_tools:`                       | Markdown-primary                |
+| `bob`       | `.bob/settings/settings.json`, `.bob/skills/` directory              | `bash_command:`, `allowed_tools:`                       | Markdown-primary                |
 | `openclaw`          | `SOUL.md` + `AGENTS.md` in same directory               | `.md` files with `## Identity`, `## Rules` sections     | Multi-file workspace            |
 | `letta`             | `.af` file extension, JSON with `agent_type` key        | `"human_input_pause"`, `"memory"` keys                  | Single JSON file                |
 | `crewai`            | `crew.py` or `Crew(` in Python, `@CrewBase`             | `@agent`, `@task`, `@crew` decorators                   | YAML `agents.yaml`+`tasks.yaml` |

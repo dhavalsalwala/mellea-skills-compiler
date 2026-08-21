@@ -10,7 +10,7 @@ metadata:
 
 **Version**: 4.2.0 | **Prereq**: `inventory.json`, `element_mapping.json` | **Produces**: `dependency_plan.json`, `mellea_api_ref.json`, `mellea_doc_index.json`
 
-> **Schema**: Output `intermediate/dependency_plan.json` MUST conform to `.bob/schemas/dependency_plan.schema.json`.
+> **Schema**: Output `intermediate/dependency_plan.json` MUST conform to `schemas/dependency_plan.schema.json`.
 
 Step 2.5 is entirely deterministic — no LLM invocations. It reads `element_mapping.json` (where every `TOOL_TEMPLATE` entry has `final_target_file: "pending_step_2.5"`), assigns a **disposition** to every external dependency, elicits user input when the generation mode requires it, commits the plan, and amends `element_mapping.json` accordingly.
 
@@ -109,7 +109,6 @@ Expected JSON shape when grounding is available:
   },
   "forbidden_param_names": ["f_args", "f_kwargs", "m", "..."],
   "compatibility": [
-    /* entries from .bob/data/compatibility.yaml filtered to mellea_version */
   ]
 }
 ```

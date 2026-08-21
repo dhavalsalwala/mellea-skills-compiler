@@ -67,7 +67,7 @@ Step 7's `bundled-asset-path-resolution` lint catches violations at validation t
 
 **config.py**: C1 and C2 bundle entries become `Final[str]` constants under `# === C1: Identity ===` and `# === C2: Operating Rules ===` section headers. C8 bundle entries (model ID, backend) also here. Every constant gets a `# PROVENANCE: <source_file>:<source_lines>` comment.
 
-**In Step 5, the model emits ONLY JSON `intermediate/config_emission.json` conforming to `.bob/schemas/config_emission.schema.json` — not Python source. The writer `config_writer.py` reads this JSON and renders the final `config.py` file.**
+**In Step 5, the model emits ONLY JSON `intermediate/config_emission.json` conforming to `schemas/config_emission.schema.json` — not Python source. The writer `config_writer.py` reads this JSON and renders the final `config.py` file.**
 
 > **C8 backend rule (CRITICAL)**: `BACKEND` and `MODEL_ID` values MUST be read from `intermediate/runtime_directive.json` (fields `.backend` and `.model_id` respectively). Read the file, extract the two values, and include them in the `config_emission.json` output exactly as they appear in `runtime_directive.json`. Do not invent alternatives or use values from any other source. The Step 7 `runtime-defaults-bound` lint enforces this — divergence from the `runtime_directive.json` values is a hard failure.
 
@@ -291,7 +291,7 @@ In repair mode, only re-generate the files listed in `intermediate/step_7_report
 
 Read once; apply throughout all file generation.
 
-**1. `config.py` output is JSON, not Python source.** Emit a JSON object conforming to `.bob/schemas/config_emission.schema.json`. The deterministic writer `config_writer.py` renders the file — do not write Python source for `config.py` directly.
+**1. `config.py` output is JSON, not Python source.** Emit a JSON object conforming to `schemas/config_emission.schema.json`. The deterministic writer `config_writer.py` renders the file — do not write Python source for `config.py` directly.
 
 **2. All other files output Python source.** Generate one file per LLM invocation (Rule 5-3). Wait for each file's body before starting the next.
 

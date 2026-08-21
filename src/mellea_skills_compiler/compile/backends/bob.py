@@ -21,7 +21,7 @@ import subprocess
 import threading
 import time
 from pathlib import Path
-from typing import Literal, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from rich.console import Console
 
@@ -207,6 +207,9 @@ class BOBBackend:
             # Step 7: Parse streaming JSON output
             processing.start()
             event_message: str = ""
+            if process.stdout is None:
+                raise Exception("Failed to open stdout pipe for Bob subprocess")
+
             while True:
                 elapsed = time.time() - start_time
                 if context.timeout > 0 and elapsed >= context.timeout:

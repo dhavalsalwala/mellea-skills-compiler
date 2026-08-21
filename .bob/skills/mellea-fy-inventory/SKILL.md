@@ -10,7 +10,7 @@ metadata:
 
 **Version**: 4.1.0 | **Prereq**: `classification.json` | **Produces**: `inventory.json`
 
-> **Schema**: Output `intermediate/inventory.json` MUST conform to `.bob/schemas/inventory.schema.json`.
+> **Schema**: Output `intermediate/inventory.json` MUST conform to `schemas/inventory.schema.json`.
 
 Step 1a reads files from the source based on the detected runtime's dialect. Step 1b takes those files and produces `inventory.json` — every significant element tagged with one of 17 tags and assigned to one of 9 dependency categories.
 
@@ -23,7 +23,8 @@ Read source files per the runtime's dialect. The dialect doc at `docs/dialects/<
 | Runtime             | Primary files                                                          | Roles                                                                      |
 | ------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | `openclaw`          | `SOUL.md`, `AGENTS.md`, `SETUP.md` (opt), `*.md` companions            | C1 identity, C2 operating rules, C8 runtime env                            |
-| `claude_code`       | `CLAUDE.md`, `.bob/commands/*.md`, frontmatter files                | C1-C2 per frontmatter; C6 for tool declarations                            |
+| `bob`       | `.bob/settings/settings.json`, `.claude/skills/*.md`, frontmatter files                | C1-C2 per frontmatter; C6 for tool
+| `claude_code`       | `CLAUDE.md`, `.claude/commands/*.md`, frontmatter files                | C1-C2 per frontmatter; C6 for tool declarations                            |
 | `agent_skills_std`  | Single `.md` file with YAML frontmatter                                | All roles from frontmatter + body                                          |
 | `letta`             | `.af` JSON file                                                        | Parsed as JSON with `json:<jq-path>` source references                     |
 | `crewai`            | `crew.py`, `agents.yaml`, `tasks.yaml`, `tools.py`                     | Python AST + YAML                                                          |
