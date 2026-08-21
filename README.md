@@ -63,13 +63,15 @@ agent specification        spec → typed pipeline                   Guardian ho
 
 **Step 1: Compile** — A `.md` specification is decomposed into a typed Mellea pipeline package: Pydantic schemas, `@generative` extraction slots, requirement validators, and multi-phase orchestration code. Two compilation paths are available: the `mellea-skills compile` CLI command, or the `/mellea-fy` command inside Claude Code. See [`examples/`](https://github.com/generative-computing/mellea-skills-compiler/tree/main/examples/) for pre-compiled examples.
 
-> **Backend Abstraction** — The compilation process uses a pluggable backend architecture. Currently, only the Claude Code backend is supported (via `--backend claude`), but the abstraction layer enables future support for alternative compilation backends such as IBM Bob or local LLMs.
+> **Backend Abstraction** — The compilation process uses a pluggable backend architecture. Currently, Claude Code and IBM Bob backends are supported (via `--backend claude` or `--backend bob`). The abstraction layer enables future support for alternative local LLMs.
 
 **Step 2: Certify** — A single `mellea-skills certify` invocation performs end-to-end governance: AI Atlas Nexus identifies applicable risks from Granite Guardian, NIST AI RMF, and Credo UCF taxonomies and emits a `PolicyManifest`; Guardian hooks configured from that manifest monitor every `m.instruct()` call as fixtures execute; each governance requirement is classified as AUTOMATED, PARTIAL, or MANUAL based on runtime evidence; a compliance report and audit trail are written alongside the compiled pipeline.
 
 ## Install
-!!! note "Prerequisites"
-    ### Claude Setup
+
+Mellea Skills Compiler requires a backend to compile skills. You can use either **Claude Code** or **IBM Bob** — pick whichever you have access to and follow the corresponding setup below.
+
+### Claude Setup
 
     1. Claude Code is required to compile a Mellea skill. Please ensure that the Claude Code is installed by following the guide here: https://code.claude.com/docs/en/quickstart
 
@@ -87,6 +89,18 @@ agent specification        spec → typed pipeline                   Guardian ho
       ```
       export ANTHROPIC_BASE_URL = ""
       export ANTHROPIC_API_KEY = ""
+      ```
+
+### IBM Bob
+
+    1. Please ensure that the IBM Bob shell is installed by following the guide here: https://bob.ibm.com/docs/shell/getting-started/install-and-setup. Only Bob v2.x.x is supported.
+
+    2. IBM Bob authentication works via IBMid, SSO and API key authentication. Please check https://bob.ibm.com/docs/shell/getting-started/install-and-setup#authentication for more details. Set relevant platform-specific environment variables to communicate with your IBM Bob platform.
+
+      For example, API key authentication requires following env variable:
+
+      ```
+      export BOB_API_KEY = ""
       ```
 
 ### Project Code
@@ -186,20 +200,23 @@ mellea-skills compile <Your-local-path>/skills/weather/spec.md
 mellea-skills compile <Your-local-path>/skills/weather
 ```
 
+The `--backend` flag allows you to specify which compilation backend to use (currently `claude` and `bob` are supported):
+```bash
+# Explicit backend selection as claude
+mellea-skills compile <Your-local-path>/skills/weather/spec.md --backend claude
+
+# Explicit backend selection as bob
+mellea-skills compile <Your-local-path>/skills/weather/spec.md --backend bob
+
+# Uses 'claude' by default
+mellea-skills compile <Your-local-path>/skills/weather/spec.md
+```
+
 Compile uses Sonnet as the default claude model. To use different claude model,
 
 ```bash
 mellea-skills compile <Your-local-path>/skills/weather/spec.md --model aws/claude-opus-4-5
 mellea-skills compile <Your-local-path>/skills/weather --model aws/claude-opus-4-5
-```
-
-The `--backend` flag allows you to specify which compilation backend to use (currently only `claude` is supported):
-```bash
-# Explicit backend selection
-mellea-skills compile <Your-local-path>/skills/weather/spec.md --backend claude
-
-# Uses 'claude' by default
-mellea-skills compile <Your-local-path>/skills/weather/spec.md
 ```
 
 Melleafy Repair: Identify and correct any errors effectively in Mellea skill compilation
@@ -208,12 +225,22 @@ Melleafy Repair: Identify and correct any errors effectively in Mellea skill com
 mellea-skills compile --repair-mode <Your-local-path>/skills/weather --model aws/claude-opus-4-5
 ```
 
-### Compile Agent Skill - Option 2 (Using Claude Code)
+### Compile Agent Skill - Option 2
+
+**Using Claude Code**
 
 Run `/mellea-fy` directly inside Claude Code:
 
 ```bash
 ./mellea-fy <Your-local-path>/skills/weather/spec.md
+```
+
+**Using IBM Bob**
+
+Run `/mellea-fy` directly inside Bob Shell:
+
+```bash
+/mellea-fy <Your-local-path>/skills/weather/spec.md
 ```
 
 See [`mellea-fy/README.md`](https://github.com/generative-computing/mellea-skills-compiler/blob/main/mellea-fy/README.md) for detailed usage of the Claude Code command.
@@ -378,7 +405,7 @@ See [`skills/README.md`](skills/README.md) for the full per-skill tier table and
 ```
 src/mellea_skills_compiler/  # pip-installable package
   certification/           # Ingest → policy → compliance → certification report
-  compile/                 # Compile Mellea skill specification into a Mellea pipeline using mellea-fy Claude command.
+  compile/                 # Compile Mellea skill specification into a Mellea pipeline using mellea-fy Claude or Bob shell.
   guardian/                # Granite Guardian hooks for Mellea pipelines
   toolkit/                 # Shared utilities and enums
   export/                  # Export a compiled Mellea skill to a deployment target
@@ -420,7 +447,6 @@ Mellea Skills Compiler is an active research project. The current release demons
 ## Known Limitations
 
 - **Research preview** — APIs, CLI, and artifact formats may change
-- **Claude Code required for compilation** — Both `mellea-skills compile` and `/mellea-fy` invoke Claude Code under the hood for specification decomposition. The compilation backend is now pluggable (via `--backend` flag), but currently only the `claude` backend is implemented. Future releases will add support for alternative backends such as IBM Bob and local LLMs.
 - **Static compliance classification** — YAML-based action-to-control mapping, not yet validated against ground truth
 - **Single domain evaluation** — Certification pipeline has been tested primarily on security and utility skills
 - **Python version constraints** — Python >=3.11 and <3.14.4 (ai-atlas-nexus requires 3.11+ and <3.14.4; Mellea supports 3.11+)

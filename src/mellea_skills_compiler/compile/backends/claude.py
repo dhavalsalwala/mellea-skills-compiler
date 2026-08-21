@@ -18,7 +18,7 @@ This backend requires:
 - Network access to Anthropic API (or configured ANTHROPIC_BASE_URL)
 
 Example usage:
-    >>> from mellea_skills_compiler.compile.backends.claude_code import ClaudeCodeBackend
+    >>> from mellea_skills_compiler.compile.backends.claude import ClaudeCodeBackend
     >>> from mellea_skills_compiler.compile.backend import CompilationContext
     >>>
     >>> backend = ClaudeCodeBackend()
@@ -58,7 +58,6 @@ from anthropic import Anthropic
 from rich.console import Console
 
 from mellea_skills_compiler.compile.backend import (
-    CompilationBackend,
     CompilationContext,
     CompilationResult,
 )
@@ -67,11 +66,8 @@ from mellea_skills_compiler.compile.claude_directives import (
     write_compile_settings,
 )
 from mellea_skills_compiler.compile.proxy import ContextMgmtStrippingProxy
-from mellea_skills_compiler.enums import (
-    ClaudeResponseMessageType,
-    ClaudeResponseType,
-    InferenceModel,
-)
+from mellea_skills_compiler.enums import ClaudeMessageType, InferenceModel
+
 
 LOGGER = logging.getLogger(__name__)
 console = Console(log_time=True)
@@ -119,6 +115,28 @@ class ClaudeCodeBackend:
         ... )
         >>> result = backend.compile(context)
     """
+
+    @staticmethod
+    def identifier() -> str:
+        """Internal identifer for the given compiler
+
+        Returns:
+            str: Return Compiler identifer - "claude"
+        """
+        return "claude"
+
+    def name(self) -> str:
+        """Return human-readable backend name for logging and display.
+
+        Returns:
+            The string "Claude Code"
+
+        Example:
+            >>> backend = ClaudeCodeBackend()
+            >>> print(f"Using backend: {backend.name()}")
+            Using backend: Claude Code
+        """
+        return "Claude Code"
 
     def compile(self, context: CompilationContext) -> CompilationResult:
         """Execute the full compilation workflow using Claude Code.
@@ -203,7 +221,7 @@ class ClaudeCodeBackend:
                 model = models[0]
 
             console.print(
-                f"\n[green]{'Repairing' if context.repair_mode else 'Compiling'} using Claude model:[/] {model}\n"
+                f"\n[green]{'Repairing' if context.repair_mode else 'Compiling'} using {self.name()}, model:[/] {model}\n"
             )
 
             # Step 2: Start proxy server to strip context_management from API requests
@@ -292,13 +310,13 @@ class ClaudeCodeBackend:
                 if output:
                     try:
                         response = json.loads(output.strip())
-                        if response.get("type") == ClaudeResponseType.ASSISTANT:
+                        if response.get("type") == ClaudeMessageType.ASSISTANT:
                             for message_content in response.get("message", {}).get(
                                 "content", []
                             ):
                                 if (
                                     message_content.get("type")
-                                    == ClaudeResponseMessageType.TEXT
+                                    == ClaudeMessageType.TEXT
                                 ):
                                     console.print(
                                         f"[cyan]{message_content.get('text', '')}[/]\n"
@@ -393,19 +411,6 @@ class ClaudeCodeBackend:
             )
 
         return True, None
-
-    def get_backend_name(self) -> str:
-        """Return human-readable backend name for logging and display.
-
-        Returns:
-            The string "Claude Code"
-
-        Example:
-            >>> backend = ClaudeCodeBackend()
-            >>> print(f"Using backend: {backend.get_backend_name()}")
-            Using backend: Claude Code
-        """
-        return "Claude Code"
 
     def supports_repair_mode(self) -> bool:
         """Indicate that Claude Code supports repair mode.
@@ -531,48 +536,6 @@ class ClaudeCodeBackend:
         LOGGER.debug("Claude Code command: %s", " ".join(claude_argv))
 
         return claude_argv
-
-    def _parse_claude_output(self, process: subprocess.Popen) -> None:
-        """Parse JSON streaming output from Claude Code subprocess.
-
-        Reads stdout line by line, parses JSON responses, and displays assistant
-        messages to the console. Handles JSON decode errors gracefully by logging
-        them without interrupting the compilation process.
-
-        This method processes Claude Code's stream-json output format, which emits
-        one JSON object per line. Each object may contain assistant messages that
-        should be displayed to the user.
-
-        Args:
-            process: The running Claude Code subprocess with stdout to parse
-
-        Example:
-            >>> process = subprocess.Popen(claude_argv, stdout=subprocess.PIPE, ...)
-            >>> self._parse_claude_output(process)
-            # Displays assistant messages as they arrive
-        """
-        if not process.stdout:
-            return
-
-        for line in iter(process.stdout.readline, ""):
-            if not line:
-                continue
-
-            try:
-                response = json.loads(line.strip())
-                if response.get("type") == ClaudeResponseType.ASSISTANT:
-                    for message_content in response.get("message", {}).get(
-                        "content", []
-                    ):
-                        if (
-                            message_content.get("type")
-                            == ClaudeResponseMessageType.TEXT
-                        ):
-                            console.print(
-                                f"[cyan]{message_content.get('text', '')}[/]\n"
-                            )
-            except json.decoder.JSONDecodeError as e:
-                console.print(f"Claude message parsing error: {e}")
 
     def _cleanup_proxy(self, proxy_server: socketserver.ThreadingTCPServer) -> None:
         """Shut down the proxy server and clean up resources.

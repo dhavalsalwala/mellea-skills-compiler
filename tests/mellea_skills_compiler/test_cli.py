@@ -13,17 +13,16 @@ from typer.testing import CliRunner
 
 from mellea_skills_compiler.cli import app
 
+
 runner = CliRunner()
 
 
 class TestCompileBackendFlag:
     """Test the --backend flag validation and behavior."""
 
-    @patch("mellea_skills_compiler.compile.mellea_skills.compile")
-    @patch("mellea_skills_compiler.compile.backend.list_backends")
-    def test_backend_claude_is_accepted(self, mock_list_backends, mock_compile):
+    @patch("mellea_skills_compiler.compile.compiler.compile")
+    def test_backend_claude_is_accepted(self, mock_compile):
         """Test that --backend claude is accepted and passed to compile function."""
-        mock_list_backends.return_value = ["claude"]
         mock_compile.return_value = None
 
         result = runner.invoke(
@@ -37,10 +36,10 @@ class TestCompileBackendFlag:
         call_kwargs = mock_compile.call_args[1]
         assert call_kwargs["backend"] == "claude"
 
-    @patch("mellea_skills_compiler.compile.backend.list_backends")
-    def test_backend_invalid_fails_with_helpful_message(self, mock_list_backends):
-        """Test that invalid backend fails with clear error message."""
-        mock_list_backends.return_value = ["claude"]
+    @patch("mellea_skills_compiler.compile.compiler.compile")
+    def test_backend_invalid_is_accepted_by_cli(self, mock_compile):
+        """Test that invalid backend is accepted by CLI (validation happens in compile)."""
+        mock_compile.side_effect = ValueError("Unknown compilation backend")
 
         result = runner.invoke(
             app,
@@ -51,11 +50,9 @@ class TestCompileBackendFlag:
         # Error is logged but not captured in result output by typer
         # Just verify the exit code is correct
 
-    @patch("mellea_skills_compiler.compile.mellea_skills.compile")
-    @patch("mellea_skills_compiler.compile.backend.list_backends")
-    def test_default_backend_is_claude(self, mock_list_backends, mock_compile):
+    @patch("mellea_skills_compiler.compile.compiler.compile")
+    def test_default_backend_is_claude(self, mock_compile):
         """Test that default backend is 'claude' when flag is omitted."""
-        mock_list_backends.return_value = ["claude"]
         mock_compile.return_value = None
 
         result = runner.invoke(
@@ -69,11 +66,9 @@ class TestCompileBackendFlag:
         call_kwargs = mock_compile.call_args[1]
         assert call_kwargs["backend"] == "claude"
 
-    @patch("mellea_skills_compiler.compile.mellea_skills.compile")
-    @patch("mellea_skills_compiler.compile.backend.list_backends")
-    def test_backend_flag_short_form(self, mock_list_backends, mock_compile):
+    @patch("mellea_skills_compiler.compile.compiler.compile")
+    def test_backend_flag_short_form(self, mock_compile):
         """Test that -b short form of --backend flag works."""
-        mock_list_backends.return_value = ["claude"]
         mock_compile.return_value = None
 
         result = runner.invoke(
@@ -86,27 +81,23 @@ class TestCompileBackendFlag:
         call_kwargs = mock_compile.call_args[1]
         assert call_kwargs["backend"] == "claude"
 
-    @patch("mellea_skills_compiler.compile.backend.list_backends")
-    def test_multiple_backends_listed_in_error(self, mock_list_backends):
-        """Test that error message lists all available backends."""
-        mock_list_backends.return_value = ["claude", "bob", "local"]
+    @patch("mellea_skills_compiler.compile.compiler.compile")
+    def test_multiple_backends_accepted_by_cli(self, mock_compile):
+        """Test that any backend string is accepted by CLI (validation happens in compile)."""
+        mock_compile.return_value = None
 
         result = runner.invoke(
             app,
-            ["compile", "test_spec.md", "--backend", "invalid"],
+            ["compile", "test_spec.md", "--backend", "bob"],
         )
 
-        assert result.exit_code == 1
-        # Error is logged but not captured in result output by typer
-        # Just verify the exit code is correct
+        assert result.exit_code == 0
+        call_kwargs = mock_compile.call_args[1]
+        assert call_kwargs["backend"] == "bob"
 
-    @patch("mellea_skills_compiler.compile.mellea_skills.compile")
-    @patch("mellea_skills_compiler.compile.backend.list_backends")
-    def test_backend_parameter_passed_with_other_options(
-        self, mock_list_backends, mock_compile
-    ):
+    @patch("mellea_skills_compiler.compile.compiler.compile")
+    def test_backend_parameter_passed_with_other_options(self, mock_compile):
         """Test that backend parameter works alongside other CLI options."""
-        mock_list_backends.return_value = ["claude"]
         mock_compile.return_value = None
 
         result = runner.invoke(
@@ -143,22 +134,16 @@ class TestCompileBackendFlag:
 class TestCompileCommand:
     """Test the compile command basic functionality."""
 
-    @patch("mellea_skills_compiler.compile.mellea_skills.compile")
-    @patch("mellea_skills_compiler.compile.backend.list_backends")
-    def test_compile_requires_spec_path(self, mock_list_backends, mock_compile):
+    def test_compile_requires_spec_path(self):
         """Test that compile command requires spec_path argument."""
-        mock_list_backends.return_value = ["claude"]
-
         result = runner.invoke(app, ["compile"])
 
         # Should fail due to missing required argument
         assert result.exit_code == 2  # Typer returns 2 for usage errors
 
-    @patch("mellea_skills_compiler.compile.mellea_skills.compile")
-    @patch("mellea_skills_compiler.compile.backend.list_backends")
-    def test_compile_exception_handling(self, mock_list_backends, mock_compile):
+    @patch("mellea_skills_compiler.compile.compiler.compile")
+    def test_compile_exception_handling(self, mock_compile):
         """Test that exceptions from compile function are handled gracefully."""
-        mock_list_backends.return_value = ["claude"]
         mock_compile.side_effect = RuntimeError("Compilation failed")
 
         result = runner.invoke(

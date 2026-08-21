@@ -12,9 +12,9 @@ In most cases you don't invoke `/mellea-fy` directly — `mellea-skills compile`
 mellea-skills compile skills/checklist/spec.md
 ```
 
-This invokes `/mellea-fy` automatically inside Claude Code, then chains into the post-compile pipeline (writer-rendered `config.py` and `fixtures/`, Step 7 lints, smoke check).
+This invokes `/mellea-fy` automatically inside Claude Code or IBM Bob, then chains into the post-compile pipeline (writer-rendered `config.py` and `fixtures/`, Step 7 lints, smoke check).
 
-### Alternative: directly inside Claude Code
+### Alternative: directly inside Claude Code / IBM Bob
 
 ```
 /mellea-fy skills/checklist/spec.md
@@ -65,10 +65,10 @@ skills/checklist/
 
 Two parts of the compile output are **wrapper-rendered, not LLM-emitted**:
 
-- `config.py` — rendered from `intermediate/config_emission.json` by [`src/mellea_skills_compiler/compile/claude/melleafy/writers/config_writer.py`](../src/mellea_skills_compiler/compile/claude/melleafy/writers/config_writer.py)
-- `fixtures/` — rendered from `intermediate/fixtures_emission.json` by [`src/mellea_skills_compiler/compile/claude/melleafy/writers/fixtures_writer.py`](../src/mellea_skills_compiler/compile/claude/melleafy/writers/fixtures_writer.py)
+- `config.py` — rendered from `intermediate/config_emission.json` by [`src/mellea_skills_compiler/compile/writers/config_writer.py`](../src/mellea_skills_compiler/compile/writers/config_writer.py)
+- `fixtures/` — rendered from `intermediate/fixtures_emission.json` by [`src/mellea_skills_compiler/compile/writers/fixtures_writer.py`](../src/mellea_skills_compiler/compile/writers/fixtures_writer.py)
 
-`mellea-skills compile` enforces this by injecting Claude Code `--settings` deny rules that block the LLM from writing those paths during the slash-command phase. The LLM emits the typed JSON intermediate; the wrapper renders the source. This makes drift in those two artifacts structurally impossible.
+`mellea-skills compile` enforces this by injecting `--settings` deny rules that block the LLM from writing those paths during the slash-command phase. The LLM emits the typed JSON intermediate; the wrapper renders the source. This makes drift in those two artifacts structurally impossible.
 
 All other generated files (`pipeline.py`, `tools.py`, `schemas.py`, etc.) are LLM-emitted within the slash command.
 
@@ -83,10 +83,11 @@ mellea-skills certify skills/checklist/checklist_mellea
 
 ## The Skill Spec
 
-The mellea-fy command spec lives at [`src/mellea_skills_compiler/compile/claude/commands/mellea-fy.md`](../src/mellea_skills_compiler/compile/claude/commands/mellea-fy.md) (orchestrator) and nine sub-command files (`mellea-fy-classify.md`, `mellea-fy-inventory.md`, `mellea-fy-map.md`, `mellea-fy-deps.md`, `mellea-fy-fixtures.md`, `mellea-fy-generate.md`, `mellea-fy-artifacts.md`, `mellea-fy-validate.md`, `mellea-fy-repair.md`) in the same directory. Together they define the eight-step decomposition methodology (Steps 0–7).
+The mellea-fy command spec lives at [`./claude/commands/mellea-fy.md`](../.claude/commands/mellea-fy.md) (orchestrator) and nine sub-command files (`mellea-fy-classify.md`, `mellea-fy-inventory.md`, `mellea-fy-map.md`, `mellea-fy-deps.md`, `mellea-fy-fixtures.md`, `mellea-fy-generate.md`, `mellea-fy-artifacts.md`, `mellea-fy-validate.md`, `mellea-fy-repair.md`) in the same directory. Together they define the eight-step decomposition methodology (Steps 0–7).
+
+For IBM Bob, the mellea-fy and related sub-command files live in [.bob/skills/](../.bob/skills/)
 
 Supporting infrastructure used during code generation:
 
-- [`src/mellea_skills_compiler/compile/claude/schemas/`](../src/mellea_skills_compiler/compile/claude/schemas/) — JSON Schema contracts for intermediate IR files (`classification`, `inventory`, `element_mapping`, `dependency_plan`, `melleafy`, `config_emission`, `fixtures_emission`, `runtime_defaults`)
-- [`src/mellea_skills_compiler/compile/claude/melleafy/writers/`](../src/mellea_skills_compiler/compile/claude/melleafy/writers/) — deterministic Python writers (`config_writer`, `fixtures_writer`)
-- [`src/mellea_skills_compiler/compile/claude/data/runtime_defaults.json`](../src/mellea_skills_compiler/compile/claude/data/runtime_defaults.json) — default backend and model_id baked into compiled skills (override per compile via `--backend` / `--model-id`)
+- [`./claude/schemas/`](../.claude/schemas/) — JSON Schema contracts for intermediate IR files (`classification`, `inventory`, `element_mapping`, `dependency_plan`, `melleafy`, `config_emission`, `fixtures_emission`, `runtime_defaults`)
+- [`./claude/data/runtime_defaults.json`](../.claude/data/runtime_defaults.json) — default backend and model_id baked into compiled skills (override per compile via `--backend` / `--model-id`)

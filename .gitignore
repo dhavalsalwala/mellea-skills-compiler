@@ -1,8 +1,4 @@
-#bob stuff
-*.bob/
-*bobnotes/
-*notes/
-pending-notes.txt
+.bob/notes/
 *IMPLEMENTATION_PLAN.md
 
 # Byte-compiled / optimized / DLL files
@@ -185,8 +181,3 @@ cython_debug/
 .python-version
 
 node_modules
-
-# Examples folders
-examples/
-skills/
-Bob_Mellea.md

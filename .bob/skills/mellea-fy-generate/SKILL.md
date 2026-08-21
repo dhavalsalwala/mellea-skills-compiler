@@ -1,3 +1,11 @@
+---
+name: mellea-fy-generate
+description: '# Melleafy Steps 3 + 5: Skeleton Emission and Body Generation'
+metadata:
+  user-invocable: true
+  disable-model-invocation: true
+---
+
 # Melleafy Steps 3 + 5: Skeleton Emission and Body Generation
 
 **Version**: 4.3.0 (2026-04-28) | **Prereq**: `dependency_plan.json` (Step 2.5 complete) | **Produces**: Populated Python package
@@ -25,7 +33,6 @@ Step 3 emits skeleton files (imports, signatures, docstring placeholders) from t
 | `loader.py`            | When any C3 element has disposition `load_from_disk`                                     |
 | `main.py`              | Always (CLI entry point)                                                                 |
 | `pyproject.toml`       | Always                                                                                   |
-| `fixtures/`            | Always (5–8 fixtures, generated in Step 4)                                               |
 | `SETUP.md`             | When any C4, C5, C9, non-bundled C6, C7, non-default C8, or host-needing modality        |
 | `README.md`            | Always                                                                                   |
 | `melleafy.json`        | Always (skeleton in Step 3; finalised in Step 6)                                         |
@@ -58,11 +65,13 @@ Step 7's `bundled-asset-path-resolution` lint catches violations at validation t
 
 ### Skeleton contents per file
 
-**config.py**: C1 and C2 bundle entries become `Final[str]` constants under `# === C1: Identity ===` and `# === C2: Operating Rules ===` section headers. C8 bundle entries (model ID, backend) also here. Every constant gets a `# PROVENANCE: <source_file>:<source_lines>` comment. **In Step 5, the model emits JSON conforming to `.claude/schemas/config_emission.schema.json` — not Python source. The writer at `.claude/melleafy/writers/config_writer.py` renders the file.**
+**config.py**: C1 and C2 bundle entries become `Final[str]` constants under `# === C1: Identity ===` and `# === C2: Operating Rules ===` section headers. C8 bundle entries (model ID, backend) also here. Every constant gets a `# PROVENANCE: <source_file>:<source_lines>` comment.
 
-> **C8 backend rule**: `BACKEND` and `MODEL_ID` values are injected via the system prompt by the compile pipeline (sourced from `.claude/data/runtime_defaults.json`, with optional `--backend` / `--model-id` CLI overrides). Emit them in `config.py` exactly as instructed in the system prompt; do not invent alternatives. The Step 7 `runtime-defaults-bound` lint enforces this — divergence from the injected values is a hard failure.
+**In Step 5, the model emits ONLY JSON `intermediate/config_emission.json` conforming to `schemas/config_emission.schema.json` — not Python source. The writer `config_writer.py` reads this JSON and renders the final `config.py` file.**
 
-_JSON the model emits:_
+> **C8 backend rule (CRITICAL)**: `BACKEND` and `MODEL_ID` values MUST be read from `intermediate/runtime_directive.json` (fields `.backend` and `.model_id` respectively). Read the file, extract the two values, and include them in the `config_emission.json` output exactly as they appear in `runtime_directive.json`. Do not invent alternatives or use values from any other source. The Step 7 `runtime-defaults-bound` lint enforces this — divergence from the `runtime_directive.json` values is a hard failure.
+
+_JSON the model emits to `intermediate/config_emission.json`:_
 
 ```json
 {
@@ -93,22 +102,6 @@ _JSON the model emits:_
     }
   ]
 }
-```
-
-_Python source the writer renders from that JSON:_
-
-```python
-from typing import Final
-
-# === C1: Identity & Behavioral Context ===
-PREFIX_TEXT: Final[str] = """You are an AI assistant.\nYou help users with research tasks."""
-# PROVENANCE: SOUL.md:1-45
-
-# === C8: Runtime Environment ===
-BACKEND: Final[str] = 'ollama'
-MODEL_ID: Final[str] = 'granite4.1:3b'
-
-LOOP_BUDGET: Final[int] = 3
 ```
 
 **schemas.py**: One Pydantic `BaseModel` per `SCHEMA` element. Field descriptions pulled from the spec's output format description. For two-step pattern: include both the simplified raw schema and the full schema.
@@ -285,7 +278,7 @@ Note: the `openai-agents` package is NOT added to dependencies for Agents SDK so
 
 ## Step 5: Code body generation
 
-Step 5 fills every skeleton placeholder with real code. For `config.py`, the model emits JSON and the writer renders Python source (invariant 1).
+Step 5 fills every skeleton placeholder with real code. For `config.py`, the model emits JSON and the writer `config_writer.py` renders Python source (invariant 1).
 
 **Parallelization strategy**: Step 5 is structured in **three phases** to maximize throughput:
 - **Phase A (parallel)**: Emit all 7 independent files in a single turn using parallel tool calls: schemas.py, config.py, requirements.py, slots.py, tools.py/constrained_slots.py, mobjects.py, loader.py. These files have no inter-file dependencies at generation time.
@@ -298,7 +291,7 @@ In repair mode, only re-generate the files listed in `intermediate/step_7_report
 
 Read once; apply throughout all file generation.
 
-**1. `config.py` output is JSON, not Python source.** Emit a JSON object conforming to `.claude/schemas/config_emission.schema.json`. The deterministic writer at `.claude/melleafy/writers/config_writer.py` renders the file — do not write Python source for `config.py` directly.
+**1. `config.py` output is JSON, not Python source.** Emit a JSON object conforming to `schemas/config_emission.schema.json`. The deterministic writer `config_writer.py` renders the file — do not write Python source for `config.py` directly.
 
 **2. All other files output Python source.** Generate one file per LLM invocation (Rule 5-3). Wait for each file's body before starting the next.
 
@@ -311,7 +304,7 @@ Read once; apply throughout all file generation.
 
 If `grounding_unavailable: true`, fall back to the KB patterns in `/mellea-fy-behaviours` and the static signature tables in Rules 5-2 and 5-4.
 
-**4. Use canonical fixture pairs from `<package_name>/fixtures/` as concrete examples** (already produced by Step 4) for the file being generated. Use these as the reference for correct Mellea usage, not training memory.
+**4. Use canonical fixture pairs from `intermediate/fixtures_emission.json` as concrete examples** (already produced by Step 4) for the file being generated. Use these as the reference for correct Mellea usage, not training memory.
 
 **5. Behavioral guidance is in `/mellea-fy-behaviours`.** Read it once before generating any file body.
 
@@ -336,7 +329,7 @@ Before generating any body, include in the context:
 Generate all of these simultaneously in one turn. They are mutually independent at generation time:
 
 1. `schemas.py` — Pydantic models (referenced by Phase B)
-2. `config.py` — emit JSON conforming to `.claude/schemas/config_emission.schema.json`; the writer at `.claude/melleafy/writers/config_writer.py` renders the Python source
+2. `intermediate/config_emission.json` — config json (referenced in Step 5)
 3. `requirements.py` — requirement functions (referenced by Phase B)
 4. `slots.py` — `@generative` slot bodies (referenced by Phase B)
 5. `tools.py` / `constrained_slots.py` — tool implementations (referenced by Phase B)
@@ -479,7 +472,7 @@ def _get_user_approval(draft: str) -> str:
 ## Cross-checks before Step 5 declares done
 
 - `intermediate/mellea_api_ref.json` was consulted before code body generation (or `grounding_unavailable: true` was noted and KB fallback used)
-- Fixture pair examples from `<package_name>/fixtures/` (Step 4) were used as grounding context for each generated file (invariant 4)
+- Fixture pair examples from `intermediate/fixtures_emission.json` (Step 4) were used as grounding context for each generated file (invariant 4)
 
 ---
 

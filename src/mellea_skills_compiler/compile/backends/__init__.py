@@ -4,13 +4,19 @@ This package contains concrete implementations of the CompilationBackend protoco
 each wrapping a different compilation engine (Claude Code, IBM Bob, local LLMs, etc.).
 
 Available backends:
-- claude_code: Uses Anthropic's Claude Code CLI for compilation
+- claude: Uses Anthropic's Claude Code CLI for compilation
+- bob: Uses IBM Bob CLI for compilation
 """
 
-from mellea_skills_compiler.compile.backend import register_backend
-from mellea_skills_compiler.compile.backends.claude_code import ClaudeCodeBackend
+from mellea_skills_compiler.compile.backend import global_registry
+from mellea_skills_compiler.compile.backends.bob import BOBBackend
+from mellea_skills_compiler.compile.backends.claude import ClaudeCodeBackend
+
 
 # Register the Claude Code backend
-register_backend("claude", ClaudeCodeBackend)
+global_registry.register_backend(backend_class=ClaudeCodeBackend)
 
-__all__ = ["ClaudeCodeBackend"]
+# Register the IBM Bob backend
+global_registry.register_backend(backend_class=BOBBackend)
+
+__all__ = ["ClaudeCodeBackend", "BOBBackend"]
