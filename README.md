@@ -73,9 +73,9 @@ Mellea Skills Compiler requires a backend to compile skills. You can use either 
 
 ### Claude Setup
 
-    1. Claude Code is required to compile a Mellea skill. Please ensure that the Claude Code is installed by following the guide here: https://code.claude.com/docs/en/quickstart
+  1. Claude Code is required to compile a Mellea skill. Please ensure that the Claude Code is installed by following the guide here: https://code.claude.com/docs/en/quickstart
 
-    2. Set relevant platform-specific environment variables to communicate with your Claude platform.
+  2. Set relevant platform-specific environment variables to communicate with your Claude platform.
 
       For example, Claude via LiteLLM Gateway requires following env variables:
 
@@ -93,9 +93,9 @@ Mellea Skills Compiler requires a backend to compile skills. You can use either 
 
 ### IBM Bob
 
-    1. Please ensure that the IBM Bob shell is installed by following the guide here: https://bob.ibm.com/docs/shell/getting-started/install-and-setup. Only Bob v2.x.x is supported.
+  1. Please ensure that the IBM Bob shell is installed by following the guide here: https://bob.ibm.com/docs/shell/getting-started/install-and-setup. Only Bob v2.x.x is supported.
 
-    2. IBM Bob authentication works via IBMid, SSO and API key authentication. Please check https://bob.ibm.com/docs/shell/getting-started/install-and-setup#authentication for more details. Set relevant platform-specific environment variables to communicate with your IBM Bob platform.
+  2. IBM Bob authentication works via IBMid, SSO and API key authentication. Please check https://bob.ibm.com/docs/shell/getting-started/install-and-setup#authentication for more details. Set relevant platform-specific environment variables to communicate with your IBM Bob platform.
 
       For example, API key authentication requires following env variable:
 
