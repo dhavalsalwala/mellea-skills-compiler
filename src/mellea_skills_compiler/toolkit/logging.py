@@ -7,6 +7,7 @@ logging.getLogger("fancy_logger").setLevel(logging.ERROR)
 logging.getLogger("ai_atlas_nexus").setLevel(logging.WARNING)
 logging.getLogger("faiss.loader").setLevel(logging.ERROR)
 logging.getLogger("cpex.framework.manager").setLevel(logging.ERROR)
+logging.getLogger("mellea").setLevel(logging.ERROR)
 os.environ["MELLEA_LOG_LEVEL"] = "ERROR"
 
 # ANSI color codes
