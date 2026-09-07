@@ -24,6 +24,10 @@ from mellea_skills_compiler.export.targets.langgraph import (
     _render_graph_py,
 )
 from mellea_skills_compiler.export.targets.mcp import _render_server_py
+from mellea_skills_compiler.export.targets.pi import (
+    _guardian_inline_snippet as _pi_guardian_inline_snippet,
+    _render_run_sh as _pi_render_run_sh,
+)
 
 
 def _minimal_sig() -> ParsedSignature:
@@ -223,6 +227,76 @@ class TestClaudeCodeGuardianInjection:
         compile(body, "<generated run.sh body>", "exec")
 
 
+class TestPiGuardianInjection:
+    def test_guardian_snippet_present_synchronous_oneshot(self):
+        result = _pi_render_run_sh(
+            modality="synchronous_oneshot",
+            package_name="my_skill",
+            entry_module="pipeline",
+            entry_function="run_pipeline",
+            pattern="no_args",
+            params=[],
+            export_version="0.1.0",
+            has_policy_manifest=True,
+        )
+        assert "GuardianPluginFactory" in result
+
+    def test_guardian_snippet_present_streaming(self):
+        result = _pi_render_run_sh(
+            modality="streaming",
+            package_name="my_skill",
+            entry_module="pipeline",
+            entry_function="run_pipeline",
+            pattern="no_args",
+            params=[],
+            export_version="0.1.0",
+            has_policy_manifest=True,
+        )
+        assert "GuardianPluginFactory" in result
+
+    def test_guardian_snippet_present_conversational_session(self):
+        result = _pi_render_run_sh(
+            modality="conversational_session",
+            package_name="my_skill",
+            entry_module="pipeline",
+            entry_function="run_pipeline",
+            pattern="no_args",
+            params=[],
+            export_version="0.1.0",
+            has_policy_manifest=True,
+        )
+        assert "GuardianPluginFactory" in result
+
+    def test_guardian_snippet_absent_without_manifest(self):
+        result = _pi_render_run_sh(
+            modality="synchronous_oneshot",
+            package_name="my_skill",
+            entry_module="pipeline",
+            entry_function="run_pipeline",
+            pattern="no_args",
+            params=[],
+            export_version="0.1.0",
+            has_policy_manifest=False,
+        )
+        assert "GuardianPluginFactory" not in result
+
+    def test_generated_python_compiles(self):
+        result = _pi_render_run_sh(
+            modality="synchronous_oneshot",
+            package_name="my_skill",
+            entry_module="pipeline",
+            entry_function="run_pipeline",
+            pattern="no_args",
+            params=[],
+            export_version="0.1.0",
+            has_policy_manifest=True,
+        )
+        start = result.index('exec python -c "') + len('exec python -c "')
+        end = result.index('" -- "$@"')
+        body = result[start:end]
+        compile(body, "<generated run.sh body>", "exec")
+
+
 class TestAuditWritabilityProbe:
     """Each target's generated entry point must probe the audit dir for write access
     and fail loudly before registering the audit plugin."""
@@ -330,7 +404,7 @@ def certified_skill_dir(tmp_path):
     return skill_copy
 
 
-@pytest.mark.parametrize("target", ["mcp", "langgraph", "claude-code"])
+@pytest.mark.parametrize("target", ["mcp", "langgraph", "claude-code", "pi"])
 def test_run_export_audit_jsonl_created(certified_skill_dir, tmp_path, target):
     """Verify that simulating Guardian registration at runtime produces audit/runtime_audit.jsonl."""
     out_path = tmp_path / f"weather_mellea-{target}"
@@ -355,7 +429,7 @@ def test_run_export_audit_jsonl_created(certified_skill_dir, tmp_path, target):
     assert audit_log.stat().st_size > 0, "audit/runtime_audit.jsonl is empty"
 
 
-@pytest.mark.parametrize("target", ["mcp", "langgraph", "claude-code"])
+@pytest.mark.parametrize("target", ["mcp", "langgraph", "claude-code", "pi"])
 def test_run_export_reverse_manifest_guardian_configured(
     certified_skill_dir, tmp_path, target
 ):
@@ -372,7 +446,7 @@ def test_run_export_reverse_manifest_guardian_configured(
     assert reverse["guardian_configured"] == "audit"
 
 
-@pytest.mark.parametrize("target", ["mcp", "langgraph", "claude-code"])
+@pytest.mark.parametrize("target", ["mcp", "langgraph", "claude-code", "pi"])
 def test_run_export_notes_contains_guardian_section(
     certified_skill_dir, tmp_path, target
 ):
@@ -390,7 +464,7 @@ def test_run_export_notes_contains_guardian_section(
     assert "runtime_audit.jsonl" in notes
 
 
-@pytest.mark.parametrize("target", ["mcp", "langgraph", "claude-code"])
+@pytest.mark.parametrize("target", ["mcp", "langgraph", "claude-code", "pi"])
 def test_export_notes_audit_path_per_target(certified_skill_dir, tmp_path, target):
     out_path = tmp_path / f"weather_mellea-{target}"
     inv = Invocation(
@@ -404,7 +478,7 @@ def test_export_notes_audit_path_per_target(certified_skill_dir, tmp_path, targe
     notes = (out_path / "EXPORT_NOTES.md").read_text()
     assert "mkdir -p" in notes
     assert "fail at startup" in notes
-    if target == "claude-code":
+    if target in ("claude-code", "pi"):
         assert "ADAPTER_DIR" in notes
     else:
         assert "<bundle_dir>/audit/runtime_audit.jsonl" in notes
@@ -415,7 +489,7 @@ def test_export_notes_audit_path_per_target(certified_skill_dir, tmp_path, targe
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("target", ["mcp", "langgraph", "claude-code"])
+@pytest.mark.parametrize("target", ["mcp", "langgraph", "claude-code", "pi"])
 def test_enforce_flag_generates_enforce_plugin(certified_skill_dir, tmp_path, target):
     out_path = tmp_path / f"weather_mellea-{target}"
     inv = Invocation(
@@ -431,12 +505,13 @@ def test_enforce_flag_generates_enforce_plugin(certified_skill_dir, tmp_path, ta
         "mcp": out_path / "server.py",
         "langgraph": out_path / "graph.py",
         "claude-code": out_path / "scripts" / "run.sh",
+        "pi": out_path / "scripts" / "run.sh",
     }
     content = entry_files[target].read_text()
     assert "GuardianPluginFactory" in content
 
 
-@pytest.mark.parametrize("target", ["mcp", "langgraph", "claude-code"])
+@pytest.mark.parametrize("target", ["mcp", "langgraph", "claude-code", "pi"])
 def test_enforce_flag_reverse_manifest(certified_skill_dir, tmp_path, target):
     out_path = tmp_path / f"weather_mellea-{target}"
     inv = Invocation(
@@ -452,7 +527,7 @@ def test_enforce_flag_reverse_manifest(certified_skill_dir, tmp_path, target):
     assert reverse["guardian_configured"] == "enforce"
 
 
-@pytest.mark.parametrize("target", ["mcp", "langgraph", "claude-code"])
+@pytest.mark.parametrize("target", ["mcp", "langgraph", "claude-code", "pi"])
 def test_enforce_flag_export_notes(certified_skill_dir, tmp_path, target):
     out_path = tmp_path / f"weather_mellea-{target}"
     inv = Invocation(

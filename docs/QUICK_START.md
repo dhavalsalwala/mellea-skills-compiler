@@ -43,8 +43,23 @@ Begin operation by using the Mellea Skills Compiler Node.js Interactive CLI or s
 Compile a skill into a typed Mellea pipeline via the CLI:
 
 ```bash
-mellea-skills compile <Your-local-path>/skills/weather/spec.md  # if skill is a single spec file.
-mellea-skills compile <Your-local-path>/skills/weather          # if skill is a directory containing spec files
+# if skill is a single spec file.
+mellea-skills compile <Your-local-path>/skills/weather/spec.md
+
+# if skill is a directory containing spec files
+mellea-skills compile <Your-local-path>/skills/weather
+```
+
+The `--backend` flag allows you to specify which compilation backend to use (currently `claude` and `bob` are supported):
+```bash
+# Explicit backend selection as claude
+mellea-skills compile <Your-local-path>/skills/weather/spec.md --backend claude
+
+# Explicit backend selection as bob
+mellea-skills compile <Your-local-path>/skills/weather/spec.md --backend bob
+
+# Uses 'claude' by default
+mellea-skills compile <Your-local-path>/skills/weather/spec.md
 ```
 
 Compile uses Sonnet as the default claude model. To use different claude model,
@@ -62,10 +77,20 @@ mellea-skills compile --repair-mode <Your-local-path>/skills/weather --model aws
 
 ### Compile Agent Skill - Option 2 (Using Claude Code)
 
+**Using Claude Code**
+
 Run `/mellea-fy` directly inside Claude Code:
 
 ```bash
 ./mellea-fy <Your-local-path>/skills/weather/spec.md
+```
+
+**Using IBM Bob**
+
+Run `/mellea-fy` directly inside Bob Shell:
+
+```bash
+/mellea-fy <Your-local-path>/skills/weather/spec.md
 ```
 
 See [`mellea-fy/README.md`](https://github.com/generative-computing/mellea-skills-compiler/blob/main/mellea-fy/README.md) for detailed usage of the Claude Code command.

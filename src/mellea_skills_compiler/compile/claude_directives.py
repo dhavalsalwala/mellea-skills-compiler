@@ -147,7 +147,7 @@ def build_system_prompt(
         "immediately to the next step.\n\n"
         f"The compiled package directory path is exactly `{mellea_package_dir}`. "
         f"Use this exact path wherever the slash-command directives reference "
-        f"`<mellea_package_dir>`; do NOT re-derive it from the frontmatter. The wrapper "
+        f"`<package_name>`; do NOT re-derive it from the frontmatter. The wrapper "
         f"has already applied Rule OUT-2 and the post-session discovery expects "
         f"this exact directory path.\n\n"
         f"The following paths are rendered by the compile pipeline from the JSON you emit "

@@ -2,13 +2,17 @@ from enum import Enum, StrEnum, auto
 from typing import List, Literal
 
 
-class ClaudeResponseType(StrEnum):
+class ClaudeMessageType(StrEnum):
     ASSISTANT = auto()
     SYSTEM = auto()
-
-
-class ClaudeResponseMessageType(StrEnum):
     TEXT = auto()
+
+
+class BOBMessageType(StrEnum):
+    MESSAGE = auto()
+    TOOL_USE = auto()
+    ERROR = auto()
+    RESULT = auto()
 
 
 class InferenceEngineType(Enum):
@@ -21,14 +25,16 @@ class InferenceEngineType(Enum):
     def list(cls) -> List[str]:
         return list(map(lambda c: c.name, cls))
 
-    def __str__(self) -> Literal['OLLAMA', 'VLLM']:
+    def __str__(self) -> Literal["OLLAMA", "VLLM"]:
         return self.name
+
 
 class InferenceModelType(Enum):
     """Default model types"""
 
     RISK_MODEL = auto()
     GUARDIAN_MODEL = auto()
+
 
 class InferenceModel(StrEnum):
     """Default model identifiers"""
@@ -71,7 +77,7 @@ class GuardianMode(StrEnum):
     ENFORCE = "enforce"
     AUDIT = "audit"
 
-    def __str__(self) -> Literal['DISABLED', 'ENFORCE', 'AUDIT']:
+    def __str__(self) -> Literal["DISABLED", "ENFORCE", "AUDIT"]:
         return self.name
 
 

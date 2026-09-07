@@ -7,7 +7,10 @@ from typing import Annotated, Literal, Optional
 import typer
 from typer.main import Typer
 
-from mellea_skills_compiler.enums import GuardianMode, InferenceEngineType
+from mellea_skills_compiler.enums import (
+    GuardianMode,
+    InferenceEngineType,
+)
 from mellea_skills_compiler.toolkit.logging import configure_logger
 
 
@@ -37,7 +40,7 @@ def main() -> None:
 
 @app.command(
     help="Melleafy Compile: Decompose an Agent Spec into Mellea Code",
-    epilog="Compile Mellea skill specification into a Mellea pipeline. Use --backend to select compilation backend (currently only 'claude' is supported).",
+    epilog="Compile Mellea skill specification into a Mellea pipeline. Use --backend to select compilation backend [claude, bob].",
 )
 def compile(
     ctx: typer.Context,
@@ -60,7 +63,7 @@ def compile(
         typer.Option(
             "--timeout",
             "-t",
-            help="Claude session timeout in seconds. Default to 4500 (75min).",
+            help="Compile session timeout in seconds. Default to 4500 (75min).",
         ),
     ] = 4500,
     repair_mode: Annotated[
@@ -71,11 +74,11 @@ def compile(
             help="Identify and correct any errors effectively in Mellea skill compilation.",
         ),
     ] = False,
-    no_run: Annotated[
+    skip_smoke_check: Annotated[
         bool,
         typer.Option(
-            "--no-run",
-            help="Skip the post-compile fixture smoke-check (default ON).",
+            "--skip-smoke-check",
+            help="Skip the post-compile fixture smoke-check (default OFF).",
         ),
     ] = False,
     refresh_cache: Annotated[
@@ -106,10 +109,10 @@ def compile(
         typer.Option(
             "--backend",
             "-b",
-            help="Compilation backend to use. Currently only 'claude' is supported.",
+            help="Compilation backend to use ['claude', 'bob'].",
         ),
     ] = "claude",
-):
+) -> None:
     """
     Compile Mellea skill specification into a Mellea pipeline using mellea-fy Claude command.
 
@@ -119,14 +122,14 @@ def compile(
     smoke-check passed (or skipped because backend was unreachable).
     """
     try:
-        from mellea_skills_compiler.compile import mellea_skills
+        from mellea_skills_compiler.compile import compiler
 
-        mellea_skills.compile(
+        compiler.compile(
             Path(spec_path),
             model,
             timeout,
             repair_mode=repair_mode,
-            no_run=no_run,
+            skip_smoke_check=skip_smoke_check,
             refresh_cache=refresh_cache,
             skill_backend=skill_backend,
             skill_model=skill_model,
@@ -172,11 +175,9 @@ def validate(
       12 — smoke-check failed (lint pass, but a fixture raised an exception)
     """
     try:
-        from mellea_skills_compiler.compile import mellea_skills
+        from mellea_skills_compiler.compile import compiler
 
-        mellea_skills.validate(
-            Path(pipeline_dir), no_run=no_run, all_fixtures=all_fixtures
-        )
+        compiler.validate(Path(pipeline_dir), no_run=no_run, all_fixtures=all_fixtures)
     except Exception as e:
         LOGGER.error(str(e))
         raise typer.Exit(code=1)
@@ -404,7 +405,7 @@ def export(
         typer.Option(
             "--target",
             "-t",
-            help="Deployment target: langgraph | claude-code | mcp",
+            help="Deployment target: langgraph | claude-code | mcp | pi",
         ),
     ],
     force: Annotated[
@@ -425,7 +426,7 @@ def export(
     ] = False,
 ):
     """
-    Export a compiled Mellea skill to a deployment target (langgraph, claude-code, or mcp).
+    Export a compiled Mellea skill to a deployment target (langgraph, claude-code, mcp, or pi).
 
     Output is written to <package_name>/<package_name>-<target> inside the skill directory.
 

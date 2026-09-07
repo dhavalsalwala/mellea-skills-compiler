@@ -7,11 +7,11 @@ from rich import print as rprint
 from rich.console import Console
 from rich.panel import Panel
 
-import mellea_skills_compiler.compile.backends  # noqa: F401 — triggers backend registration
 from mellea_skills_compiler.compile.backend import (
+    CompilationBackend,
     CompilationContext,
-    get_backend,
-    list_backends,
+    CompilationResult,
+    global_registry,
 )
 from mellea_skills_compiler.compile.claude_directives import (
     resolve_runtime_defaults,
@@ -22,14 +22,13 @@ from mellea_skills_compiler.compile.grounding import (
     write_mellea_doc_index,
 )
 from mellea_skills_compiler.compile.writers.renderer import render_writers
-from mellea_skills_compiler.enums import (
-    SpecFileFormat,
-)
+from mellea_skills_compiler.enums import SpecFileFormat
 from mellea_skills_compiler.toolkit.file_utils import (
     mirror_dir_contents_to_target,
     parse_spec_file,
 )
 from mellea_skills_compiler.toolkit.logging import configure_logger
+
 
 LOGGER = configure_logger()
 console = Console(log_time=True)
@@ -198,28 +197,64 @@ def compile(
     model: Optional[str] = None,
     timeout: int = 4500,
     repair_mode: bool = False,
-    no_run: bool = False,
+    skip_smoke_check: bool = False,
     refresh_cache: bool = False,
     skill_backend: Optional[str] = None,
     skill_model: Optional[str] = None,
     backend: str = "claude",
 ) -> None:
-    # Validate backend parameter
-    available_backends = list_backends()
-    if backend not in available_backends:
-        raise ValueError(
-            f"Unknown backend '{backend}'. Available backends: {', '.join(available_backends)}"
-        )
+    """Compile an agent specification into a Mellea skill package.
 
-    # Get the backend implementation and validate its environment
-    backend_impl = get_backend(backend)
-    is_valid, error_msg = backend_impl.validate_environment()
-    if not is_valid:
-        raise RuntimeError(f"Backend '{backend}' not available: {error_msg}")
-    LOGGER.info("Backend '%s' environment validated successfully", backend)
+    Validates the backend environment, mirrors companion directories into the package,
+    pre-populates grounding artefacts (API ref and doc index), and delegates the actual
+    LLM-driven compilation to the chosen backend. On success, writers are rendered and the
+    package is validated.
 
+    Args:
+        spec_path (Path): Path to the skill specification — either a ``spec.md``
+            / ``SKILL.md`` file or a skill directory that contains one.
+        model (Optional[str], optional): Model identifier passed to the
+            *compilation* backend (i.e. the model that writes the code), e.g.
+            ``"claude-opus-4-5"``. When ``None`` the backend's own default is
+            used. Defaults to None.
+        timeout (int, optional): Maximum wall-clock seconds allowed for the
+            backend compilation step. Defaults to 4500.
+        repair_mode (bool, optional): When ``True`` the backend runs a repair
+            workflow that inspects a partial or failed previous run and resumes
+            from where it left off, rather than starting a fresh compilation.
+            Defaults to False.
+        skip_smoke_check (bool, optional): When ``True`` the post-compile validation step
+            skips executing the skill's test fixtures, performing only static
+            checks. Defaults to False.
+        refresh_cache (bool, optional): When ``True`` forces regeneration of
+            cached grounding artefacts (``mellea_api_ref.json`` and
+            ``mellea_doc_index.json``) even if up-to-date copies already exist.
+            Defaults to False.
+        skill_backend (Optional[str], optional): Runtime inference backend that
+            the *compiled skill* will use when executed by end-users. Overrides the project-level
+            ``runtime_defaults.json`` when supplied. Defaults to None.
+        skill_model (Optional[str], optional): Runtime model identifier that the
+            *compiled skill* will use when executed, e.g.
+            ``"granite4.1:3b"``. Overrides the project-level
+            ``runtime_defaults.json`` when supplied. Defaults to None.
+        backend (str, optional): Compilation backend identifier used to look up
+            the backend implementation from the global registry (e.g.
+            ``"claude"``, ``"bob"``). Defaults to "claude".
+
+    Raises:
+        RuntimeError: If the requested backend is unavailable or if compilation
+            or post-compile validation fails.
+        ValueError: If ``spec_path`` has an extension other than ``.md``.
+        FileNotFoundError: If ``spec_path`` does not exist on disk.
+    """
     # clears screen
     console.clear()
+
+    # Get the backend implementation and validate its environment
+    backend_impl: CompilationBackend = global_registry.get_backend(identifier=backend)
+    is_valid, error_msg = backend_impl.validate_environment()
+    if not is_valid:
+        raise RuntimeError(f"Provided backend '{backend}' not available - {error_msg}")
 
     # print mellea-fy header
     console.print()
@@ -263,14 +298,13 @@ def compile(
             )
         )
     else:
+        display_name = spec_path.name.replace("_", " ").title()
         rprint(
             Panel(
-                f"Name: {spec_path.name.replace("_"," ").title()}\nPath: {str(spec_path)}",
+                f"Name: {display_name}\nPath: {str(spec_path)}",
                 title="Specification",
             )
         )
-
-    LOGGER.info("Using compilation backend: %s", backend)
 
     # Derive mellea package name from the spec frontmatter
     mellea_package_name = _derive_mellea_package_name(spec_path, spec_frontmatter)
@@ -319,7 +353,7 @@ def compile(
         skill_backend, skill_model
     )
     LOGGER.info(
-        "Compiled skill will use backend=%r, model=%r (from %s).",
+        "Compiled skill will use inference service=%r, model=%r (from %s).",
         chosen_backend,
         chosen_model_id,
         defaults_source,
@@ -336,7 +370,7 @@ def compile(
         )
 
     # Build compilation context and execute via backend
-    context = CompilationContext(
+    context: CompilationContext = CompilationContext(
         spec_path=spec_path,
         package_dir=mellea_package_dir,
         intermediate_dir=intermediate_dir,
@@ -348,8 +382,8 @@ def compile(
         defaults_source=defaults_source,
         refresh_cache=refresh_cache,
     )
-    LOGGER.info("Starting compilation with backend '%s'", backend)
-    result = backend_impl.compile(context)
+
+    result: CompilationResult = backend_impl.compile(context)
     if not result.success:
         raise RuntimeError(f"Compilation failed - {result.error_message}")
     LOGGER.info("Backend compilation completed successfully")
@@ -357,10 +391,10 @@ def compile(
     # Post-compile: render writers, validate, copy spec file
     try:
         mellea_dir: Path = _select_canonical_mellea_dir(spec_dir, mellea_package_name)
-        render_writers(mellea_dir, enforce=True)
-        validate(mellea_dir, no_run=no_run, all_fixtures=False)
         if spec_md_path:
             shutil.copy(spec_md_path, mellea_dir / SpecFileFormat.SKILL_FILE_MD)
+        render_writers(mellea_dir, enforce=True)
+        validate(mellea_dir, no_run=skip_smoke_check, all_fixtures=False)
     except Exception as e:
         raise RuntimeError(
             f"Compilation failed with backend '{backend}': {str(e)}"

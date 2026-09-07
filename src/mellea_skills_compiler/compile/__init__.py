@@ -1,3 +1,1 @@
-from pathlib import Path
-
-CLAUDE_DIR = Path(__file__).parent.absolute() / "claude"
+import mellea_skills_compiler.compile.backends  # noqa: F401 — triggers backend registration

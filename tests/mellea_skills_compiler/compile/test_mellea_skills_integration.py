@@ -12,8 +12,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from mellea_skills_compiler.compile.backend import CompilationResult, CompilationContext
-from mellea_skills_compiler.compile.mellea_skills import compile
+from mellea_skills_compiler.compile.backend import CompilationContext, CompilationResult
+from mellea_skills_compiler.compile.compiler import compile
 
 
 @pytest.fixture
@@ -21,16 +21,14 @@ def mock_spec_file(tmp_path):
     """Create a minimal valid skill spec file."""
     spec_path = tmp_path / "test_skill" / "spec.md"
     spec_path.parent.mkdir(parents=True)
-    spec_path.write_text(
-        """---
+    spec_path.write_text("""---
 name: test-skill
 ---
 
 # Test Skill
 
 A test skill for integration testing.
-"""
-    )
+""")
     return spec_path
 
 
@@ -41,7 +39,7 @@ def successful_backend_mock():
     mock_backend.validate_environment.return_value = (True, None)
     mock_backend.get_backend_name.return_value = "Claude Code"
     mock_backend.supports_repair_mode.return_value = True
-    
+
     def mock_compile(context):
         # Simulate successful compilation
         return CompilationResult(
@@ -51,7 +49,7 @@ def successful_backend_mock():
             intermediate_artifacts={},
             metadata={"backend": "claude"},
         )
-    
+
     mock_backend.compile.side_effect = mock_compile
     return mock_backend
 
@@ -68,12 +66,12 @@ def failing_backend_mock():
 class TestCompileWithBackendParameter:
     """Test that compile() function uses backend parameter correctly."""
 
-    @patch("mellea_skills_compiler.compile.mellea_skills.render_writers")
-    @patch("mellea_skills_compiler.compile.mellea_skills.Console.clear")
-    @patch("mellea_skills_compiler.compile.mellea_skills.validate")
-    @patch("mellea_skills_compiler.compile.mellea_skills.write_mellea_doc_index")
-    @patch("mellea_skills_compiler.compile.mellea_skills.write_mellea_api_ref")
-    @patch("mellea_skills_compiler.compile.mellea_skills.get_backend")
+    @patch("mellea_skills_compiler.compile.compiler.render_writers")
+    @patch("mellea_skills_compiler.compile.compiler.Console.clear")
+    @patch("mellea_skills_compiler.compile.compiler.validate")
+    @patch("mellea_skills_compiler.compile.compiler.write_mellea_doc_index")
+    @patch("mellea_skills_compiler.compile.compiler.write_mellea_api_ref")
+    @patch("mellea_skills_compiler.compile.compiler.global_registry.get_backend")
     def test_backend_parameter_is_used(
         self,
         mock_get_backend,
@@ -86,27 +84,27 @@ class TestCompileWithBackendParameter:
         successful_backend_mock,
         tmp_path,
     ):
-        """Test that the backend parameter is passed to get_backend()."""
+        """Test that the backend parameter is passed to global_registry.get_backend()."""
         mock_get_backend.return_value = successful_backend_mock
         mock_api_ref.return_value = tmp_path / "mellea_api_ref.json"
         mock_doc_index.return_value = tmp_path / "mellea_doc_index.json"
-        
+
         compile(
             spec_path=mock_spec_file,
             model="claude-3-5-sonnet-20241022",
             timeout=300,
             backend="claude",
         )
-        
-        # Verify get_backend was called with correct backend name
-        mock_get_backend.assert_called_once_with("claude")
 
-    @patch("mellea_skills_compiler.compile.mellea_skills.render_writers")
-    @patch("mellea_skills_compiler.compile.mellea_skills.Console.clear")
-    @patch("mellea_skills_compiler.compile.mellea_skills.validate")
-    @patch("mellea_skills_compiler.compile.mellea_skills.write_mellea_doc_index")
-    @patch("mellea_skills_compiler.compile.mellea_skills.write_mellea_api_ref")
-    @patch("mellea_skills_compiler.compile.mellea_skills.get_backend")
+        # Verify get_backend was called with correct backend name
+        mock_get_backend.assert_called_once_with(identifier="claude")
+
+    @patch("mellea_skills_compiler.compile.compiler.render_writers")
+    @patch("mellea_skills_compiler.compile.compiler.Console.clear")
+    @patch("mellea_skills_compiler.compile.compiler.validate")
+    @patch("mellea_skills_compiler.compile.compiler.write_mellea_doc_index")
+    @patch("mellea_skills_compiler.compile.compiler.write_mellea_api_ref")
+    @patch("mellea_skills_compiler.compile.compiler.global_registry.get_backend")
     def test_backend_validation_is_called(
         self,
         mock_get_backend,
@@ -123,22 +121,22 @@ class TestCompileWithBackendParameter:
         mock_get_backend.return_value = successful_backend_mock
         mock_api_ref.return_value = tmp_path / "mellea_api_ref.json"
         mock_doc_index.return_value = tmp_path / "mellea_doc_index.json"
-        
+
         compile(
             spec_path=mock_spec_file,
             model="claude-3-5-sonnet-20241022",
             timeout=300,
             backend="claude",
         )
-        
+
         # Verify validate_environment was called
         successful_backend_mock.validate_environment.assert_called_once()
 
-    @patch("mellea_skills_compiler.compile.mellea_skills.render_writers")
-    @patch("mellea_skills_compiler.compile.mellea_skills.Console.clear")
-    @patch("mellea_skills_compiler.compile.mellea_skills.write_mellea_doc_index")
-    @patch("mellea_skills_compiler.compile.mellea_skills.write_mellea_api_ref")
-    @patch("mellea_skills_compiler.compile.mellea_skills.get_backend")
+    @patch("mellea_skills_compiler.compile.compiler.render_writers")
+    @patch("mellea_skills_compiler.compile.compiler.Console.clear")
+    @patch("mellea_skills_compiler.compile.compiler.write_mellea_doc_index")
+    @patch("mellea_skills_compiler.compile.compiler.write_mellea_api_ref")
+    @patch("mellea_skills_compiler.compile.compiler.global_registry.get_backend")
     def test_backend_validation_failure_raises_error(
         self,
         mock_get_backend,
@@ -154,8 +152,10 @@ class TestCompileWithBackendParameter:
         mock_get_backend.return_value = failing_backend_mock
         mock_api_ref.return_value = tmp_path / "mellea_api_ref.json"
         mock_doc_index.return_value = tmp_path / "mellea_doc_index.json"
-        
-        with pytest.raises(RuntimeError, match="Backend 'claude' not available"):
+
+        with pytest.raises(
+            RuntimeError, match="Provided backend 'claude' not available"
+        ):
             compile(
                 spec_path=mock_spec_file,
                 model="claude-3-5-sonnet-20241022",
@@ -163,12 +163,12 @@ class TestCompileWithBackendParameter:
                 backend="claude",
             )
 
-    @patch("mellea_skills_compiler.compile.mellea_skills.render_writers")
-    @patch("mellea_skills_compiler.compile.mellea_skills.Console.clear")
-    @patch("mellea_skills_compiler.compile.mellea_skills.validate")
-    @patch("mellea_skills_compiler.compile.mellea_skills.write_mellea_doc_index")
-    @patch("mellea_skills_compiler.compile.mellea_skills.write_mellea_api_ref")
-    @patch("mellea_skills_compiler.compile.mellea_skills.get_backend")
+    @patch("mellea_skills_compiler.compile.compiler.render_writers")
+    @patch("mellea_skills_compiler.compile.compiler.Console.clear")
+    @patch("mellea_skills_compiler.compile.compiler.validate")
+    @patch("mellea_skills_compiler.compile.compiler.write_mellea_doc_index")
+    @patch("mellea_skills_compiler.compile.compiler.write_mellea_api_ref")
+    @patch("mellea_skills_compiler.compile.compiler.global_registry.get_backend")
     def test_backend_compile_is_called_with_context(
         self,
         mock_get_backend,
@@ -185,7 +185,7 @@ class TestCompileWithBackendParameter:
         mock_get_backend.return_value = successful_backend_mock
         mock_api_ref.return_value = tmp_path / "mellea_api_ref.json"
         mock_doc_index.return_value = tmp_path / "mellea_doc_index.json"
-        
+
         compile(
             spec_path=mock_spec_file,
             model="claude-3-5-sonnet-20241022",
@@ -196,10 +196,10 @@ class TestCompileWithBackendParameter:
             skill_model="granite3.3:8b",
             refresh_cache=False,
         )
-        
+
         # Verify compile was called
         successful_backend_mock.compile.assert_called_once()
-        
+
         # Verify the context passed to compile
         call_args = successful_backend_mock.compile.call_args[0][0]
         assert isinstance(call_args, CompilationContext)
@@ -211,12 +211,12 @@ class TestCompileWithBackendParameter:
         assert call_args.skill_model == "granite3.3:8b"
         assert call_args.refresh_cache is False
 
-    @patch("mellea_skills_compiler.compile.mellea_skills.render_writers")
-    @patch("mellea_skills_compiler.compile.mellea_skills.Console.clear")
-    @patch("mellea_skills_compiler.compile.mellea_skills.validate")
-    @patch("mellea_skills_compiler.compile.mellea_skills.write_mellea_doc_index")
-    @patch("mellea_skills_compiler.compile.mellea_skills.write_mellea_api_ref")
-    @patch("mellea_skills_compiler.compile.mellea_skills.get_backend")
+    @patch("mellea_skills_compiler.compile.compiler.render_writers")
+    @patch("mellea_skills_compiler.compile.compiler.Console.clear")
+    @patch("mellea_skills_compiler.compile.compiler.validate")
+    @patch("mellea_skills_compiler.compile.compiler.write_mellea_doc_index")
+    @patch("mellea_skills_compiler.compile.compiler.write_mellea_api_ref")
+    @patch("mellea_skills_compiler.compile.compiler.global_registry.get_backend")
     def test_backend_compilation_failure_raises_error(
         self,
         mock_get_backend,
@@ -241,8 +241,10 @@ class TestCompileWithBackendParameter:
         mock_get_backend.return_value = mock_backend
         mock_api_ref.return_value = tmp_path / "mellea_api_ref.json"
         mock_doc_index.return_value = tmp_path / "mellea_doc_index.json"
-        
-        with pytest.raises(RuntimeError, match="Compilation failed - Compilation timeout"):
+
+        with pytest.raises(
+            RuntimeError, match="Compilation failed - Compilation timeout"
+        ):
             compile(
                 spec_path=mock_spec_file,
                 model="claude-3-5-sonnet-20241022",
@@ -250,12 +252,12 @@ class TestCompileWithBackendParameter:
                 backend="claude",
             )
 
-    @patch("mellea_skills_compiler.compile.mellea_skills.render_writers")
-    @patch("mellea_skills_compiler.compile.mellea_skills.Console.clear")
-    @patch("mellea_skills_compiler.compile.mellea_skills.validate")
-    @patch("mellea_skills_compiler.compile.mellea_skills.write_mellea_doc_index")
-    @patch("mellea_skills_compiler.compile.mellea_skills.write_mellea_api_ref")
-    @patch("mellea_skills_compiler.compile.mellea_skills.get_backend")
+    @patch("mellea_skills_compiler.compile.compiler.render_writers")
+    @patch("mellea_skills_compiler.compile.compiler.Console.clear")
+    @patch("mellea_skills_compiler.compile.compiler.validate")
+    @patch("mellea_skills_compiler.compile.compiler.write_mellea_doc_index")
+    @patch("mellea_skills_compiler.compile.compiler.write_mellea_api_ref")
+    @patch("mellea_skills_compiler.compile.compiler.global_registry.get_backend")
     def test_validation_runs_after_successful_compilation(
         self,
         mock_get_backend,
@@ -272,17 +274,17 @@ class TestCompileWithBackendParameter:
         mock_get_backend.return_value = successful_backend_mock
         mock_api_ref.return_value = tmp_path / "mellea_api_ref.json"
         mock_doc_index.return_value = tmp_path / "mellea_doc_index.json"
-        
+
         compile(
             spec_path=mock_spec_file,
             model="claude-3-5-sonnet-20241022",
             timeout=300,
             backend="claude",
         )
-        
+
         # Verify validate was called
         mock_validate.assert_called_once()
-        
+
         # Verify it was called with the package directory
         call_args = mock_validate.call_args
         package_dir_arg = call_args[0][0]
@@ -294,7 +296,7 @@ class TestCompileInvalidBackend:
 
     def test_invalid_backend_raises_value_error(self, mock_spec_file):
         """Test that invalid backend name raises ValueError."""
-        with pytest.raises(ValueError, match="Unknown backend 'invalid'"):
+        with pytest.raises(ValueError, match="Unknown compilation backend - 'invalid'"):
             compile(
                 spec_path=mock_spec_file,
                 model="claude-3-5-sonnet-20241022",

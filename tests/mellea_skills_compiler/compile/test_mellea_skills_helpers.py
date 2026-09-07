@@ -1,5 +1,5 @@
 """Unit tests for the deterministic pre-mellea-fy helpers in
-mellea_skills_compiler.compile.mellea_skills.
+mellea_skills_compiler.compile.compiler.
 
 These cover the small private helpers (`_derive_mellea_package_name`,
 `mirror_dir_contents_to_target`, `resolve_runtime_defaults`,
@@ -18,7 +18,7 @@ from mellea_skills_compiler.compile.claude_directives import (
     resolve_runtime_defaults,
     write_runtime_directive,
 )
-from mellea_skills_compiler.compile.mellea_skills import (
+from mellea_skills_compiler.compile.compiler import (
     _derive_mellea_package_name,
     _select_canonical_mellea_dir,
 )

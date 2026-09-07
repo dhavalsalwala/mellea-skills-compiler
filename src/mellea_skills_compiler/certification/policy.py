@@ -106,8 +106,9 @@ def generate_policy_manifest(
 
     LOGGER.info("Guardian risks: %d", len(risks))
     for risk in risks:
+        risk_kind = "native" if risk.is_native else "custom"
         LOGGER.info(
-            f"  [Guardian] {risk.name} ({"native" if risk.is_native else "custom"}) → {risk.guardian_prompt[:60]}"
+            f"  [Guardian] {risk.name} ({risk_kind}) → {risk.guardian_prompt[:60]}"
         )
 
     # -- 2. Use the actions which are directly linked the risks
