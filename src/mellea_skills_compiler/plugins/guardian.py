@@ -121,6 +121,7 @@ def _call_guardian(
                 risk=risk.name,
                 label=GuardianScore.ERROR,
                 raw_output="",
+                hook_stage=hook_stage,
             )
             for risk in risks
         ]
@@ -188,7 +189,7 @@ def _get_thunk_action(model_output: Any) -> Any:
 
 
 def _run_guardian_post_checks(
-    plugin: "GuardianPlugin",
+    plugin: GuardianPlugin,
     payload: Any,
     risks: List[NexusRisk],
     inference_engine: str,
@@ -235,8 +236,8 @@ def _run_guardian_post_checks(
             )
         return []
 
-    assistant_text = getattr(model_output, "value", None) or ""
-    if not assistant_text:
+    assistant_text = getattr(model_output, "value", None)
+    if assistant_text is None or assistant_text == "":
         return []
 
     # Reconstruct the user prompt from the payload
@@ -261,7 +262,7 @@ def _run_guardian_post_checks(
 
 
 def _run_guardian_pre_checks(
-    plugin: "GuardianPlugin",
+    plugin: GuardianPlugin,
     payload: Any,
     risks: List[NexusRisk],
     inference_engine: str,
@@ -374,9 +375,9 @@ class GuardianPlugin(BasePlugin):
         with self._verdict_lock:
             self.all_verdicts.extend(verdicts)
             if generation_id is not None:
-                self.verdicts_by_generation_id.setdefault(
-                    generation_id, []
-                ).extend(verdicts)
+                self.verdicts_by_generation_id.setdefault(generation_id, []).extend(
+                    verdicts
+                )
 
     def register(self) -> None:
         native = [r for r in self.risks if r.is_native]
@@ -450,7 +451,6 @@ class GuardianAuditPlugin(
         trail complete and preserves "every generation monitored" as a
         truthful claim.
         """
-        generation_id = getattr(payload, "generation_id", None)
         verdicts = [
             GuardianVerdict(
                 risk=risk.name,
@@ -460,7 +460,7 @@ class GuardianAuditPlugin(
             )
             for risk in self.risks
         ]
-        self._record_verdicts(verdicts, generation_id)
+        self._record_verdicts(verdicts, getattr(payload, "generation_id", None))
 
     @hook(HookType.GENERATION_BATCH_PRE_CALL, mode=PluginMode.AUDIT)
     async def check_batch_input(self, payload: Any, ctx: Any) -> None:
@@ -485,12 +485,16 @@ class GuardianAuditPlugin(
         for model_output, gen_id, prompt in zip(model_outputs, generation_ids, prompts):
             if model_output is None:
                 continue
-            assistant_text = getattr(model_output, "value", None) or ""
-            if not assistant_text:
+            assistant_text = getattr(model_output, "value", None)
+            if assistant_text is None or assistant_text == "":
                 continue
             input_text = str(prompt) if prompt else ""
             verdicts = _call_guardian(
-                HookStage.POST, self.risks, input_text, self.inference_engine, assistant_text
+                HookStage.POST,
+                self.risks,
+                input_text,
+                self.inference_engine,
+                assistant_text,
             )
             self._record_verdicts(verdicts, gen_id)
 
@@ -847,12 +851,16 @@ class GuardianEnforcePlugin(
         for model_output, gen_id, prompt in zip(model_outputs, generation_ids, prompts):
             if model_output is None:
                 continue
-            assistant_text = getattr(model_output, "value", None) or ""
-            if not assistant_text:
+            assistant_text = getattr(model_output, "value", None)
+            if assistant_text is None or assistant_text == "":
                 continue
             input_text = str(prompt) if prompt else ""
             verdicts = _call_guardian(
-                HookStage.POST, self.risks, input_text, self.inference_engine, assistant_text
+                HookStage.POST,
+                self.risks,
+                input_text,
+                self.inference_engine,
+                assistant_text,
             )
             self._record_verdicts(verdicts, gen_id)
 
