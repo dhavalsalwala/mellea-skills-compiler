@@ -39,7 +39,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-tests = ["pytest", "pytest-cov"]
+tests = ["pytest", "pytest-cov", "pytest-asyncio"]
 secrets = ["detect-secrets @ git+https://github.com/ibm/detect-secrets.git@master#egg=detect-secrets"]
 docs = ["zensical", "mkdocstrings-python"]
 
