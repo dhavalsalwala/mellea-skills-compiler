@@ -67,7 +67,45 @@ agent specification        spec → typed pipeline                   Guardian ho
 
 **Step 2: Certify** — A single `mellea-skills certify` invocation performs end-to-end governance: AI Atlas Nexus identifies applicable risks from Granite Guardian, NIST AI RMF, and Credo UCF taxonomies and emits a `PolicyManifest`; Guardian hooks configured from that manifest monitor every `m.instruct()` call as fixtures execute; each governance requirement is classified as AUTOMATED, PARTIAL, or MANUAL based on runtime evidence; a compliance report and audit trail are written alongside the compiled pipeline.
 
-## Install
+## Installation
+
+### Docker
+
+**Prerequisites:** Docker installed and running.
+
+**1. Build the image**
+
+```bash
+docker build -t mellea-skills-compiler:latest .
+```
+
+This will:
+- Install Claude Code (into `/home/user/.local/bin`)
+- Install IBM Bob shell (into `/user/local/bin`)
+- Install the `mellea-skills-compiler` Python package system-wide.
+- Copy `.claude/` and `.bob/` config into the container user's home directory.
+
+**2. Run the container**
+
+ - OLLAMA_API_URL (e.g. `http://host.docker.internal:11434`) must be accessible from inside the container.
+ - Either ANTHROPIC_AUTH_TOKEN or ANTHROPIC_API_KEY is required.
+
+```bash
+docker run -it \
+  -e ANTHROPIC_BASE_URL \
+  -e ANTHROPIC_AUTH_TOKEN \
+  -e ANTHROPIC_API_KEY \
+  -e BOB_API_KEY \
+  -e OLLAMA_API_URL=<ollama_api_url> \
+  -v ./skills:/skills \
+  mellea-skills-compiler:latest
+```
+
+The container starts as UID 1001. Your local `skills` directory is mounted to `/skills` to access your skill specs inside the container.
+
+Please follow the [**Quick Start**](#quick-start) guide below on how to run Mellea Skills Compiler.
+
+### Manual
 
 Mellea Skills Compiler requires a backend to compile skills. You can use either **Claude Code** or **IBM Bob** — pick whichever you have access to and follow the corresponding setup below.
 
