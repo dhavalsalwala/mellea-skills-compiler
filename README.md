@@ -87,7 +87,7 @@ This will:
 
 **2. Run the container**
 
- - OLLAMA_API_URL (e.g. `http://host.docker.internal:11434`) must be accessible from inside the container.
+ - OLLAMA_HOST (e.g. `http://host.docker.internal:11434`) must be accessible from inside the container.
  - Either ANTHROPIC_AUTH_TOKEN or ANTHROPIC_API_KEY is required.
 
 ```bash
@@ -96,7 +96,7 @@ docker run -it \
   -e ANTHROPIC_AUTH_TOKEN \
   -e ANTHROPIC_API_KEY \
   -e BOB_API_KEY \
-  -e OLLAMA_API_URL=<ollama_api_url> \
+  -e OLLAMA_HOST=http://host.docker.internal:11434 \
   -v ./skills:/skills \
   mellea-skills-compiler:latest
 ```

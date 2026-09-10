@@ -1,4 +1,4 @@
-DockerfileFROM python:3.13-slim-bookworm
+FROM python:3.13-slim-bookworm
 
 # 1. Install prerequisites (curl, ca-certificates, and git are required for Claude Code)
 RUN apt-get update && apt-get install -y \
@@ -69,6 +69,10 @@ RUN echo 'source /usr/local/bin/welcome.sh' >> /home/user/.bashrc
 # Remove code directory and all of its content in order to maintain a
 # single source of truth: $HOME/.claude and $HOME/.bob
 RUN rm -rf /mellea-skills-compiler
+
+# Copy entrypoint script
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
 # Restore the sentinel UID expected by image scanners.
 USER 1001
