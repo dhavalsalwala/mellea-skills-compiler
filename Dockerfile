@@ -29,7 +29,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - && \
 # Install IBM Bob so files land in /home/user/.bob
 RUN curl -fsSL https://bob.ibm.com/download/bobshell.sh | bash
 
-# Workaround to avoid installing massive NVIDA Cuda libraries with txtai and pytorch
+# Workaround to avoid installing massive NVIDIA Cuda libraries with txtai and pytorch
 RUN pip install --no-cache-dir txtai --extra-index-url https://download.pytorch.org/whl/cpu torch
 
 # Copy the project root directory
