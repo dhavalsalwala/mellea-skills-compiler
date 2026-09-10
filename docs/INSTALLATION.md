@@ -13,8 +13,7 @@ docker build -t mellea-skills-compiler:latest .
 This will:
 - Install Claude Code (into `/home/user/.local/bin`)
 - Install IBM Bob shell (into `/user/local/bin`)
-- Install the `mellea-skills-compiler` Python package system-wide.
-- Install mellea-skills binary (`/usr/local/bin/mellea-skills`)
+- Install mellea-skills-compiler binary (`/usr/local/bin/mellea-skills`)
 - Copy `.claude/` and `.bob/` config into the container user's home directory.
 
 **2. Run the container**
