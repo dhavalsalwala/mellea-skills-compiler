@@ -43,14 +43,14 @@ RUN cp -r /mellea-skills-compiler/.claude/. $HOME/.claude/ && \
 RUN cp -r /mellea-skills-compiler/.bob/. $HOME/.bob/ && \
     chown -R user:user $HOME/.bob/
 
-# Replace ".claude" with the real home path in all claude commands
-RUN find $HOME/.claude/commands -type f | while read f; do \
-        sed -i "s|\.claude|${HOME}/.claude|g" "$f"; \
+# Replace ".claude/" with the real home path in all claude commands
+RUN find $HOME/.claude/commands -type f -name "*.md" | while read f; do \
+        sed -i "s|\.claude/|${HOME}/.claude/|g" "$f"; \
     done
 
-# Replace ".bob" with the real home path in all bob skills
-RUN find $HOME/.bob/skills -type f | while read f; do \
-        sed -i "s|\.bob|${HOME}/.bob|g" "$f"; \
+# Replace ".bob/" with the real home path in all bob skills
+RUN find $HOME/.bob/skills -type f -name "*.md" | while read f; do \
+        sed -i "s|\.bob/|${HOME}/.bob/|g" "$f"; \
     done
 
 # Install the mellea-skills-compiler package system-wide
