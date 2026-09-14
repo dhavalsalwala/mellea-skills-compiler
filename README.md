@@ -8,6 +8,7 @@
   <a href="#what-is-mellea-skills-compiler">What</a> &middot;
   <a href="#why">Why</a> &middot;
   <a href="#how-it-works">How</a> &middot;
+  <a href="#installation">Installation</a> &middot;
   <a href="#quick-start">Quick Start</a> &middot;
   <a href="#example-outputs">Examples</a> &middot;
   <a href="#next-steps">Next Steps</a> &middot;
@@ -69,6 +70,8 @@ agent specification        spec → typed pipeline                   Guardian ho
 
 ## Installation
 
+**Jump to:** [Docker](#docker) · [Manual](#manual) · [Claude Setup](#claude-setup) · [IBM Bob](#ibm-bob) · [Project Code](#project-code)
+
 ### Docker
 
 **Prerequisites:** Docker installed and running.
@@ -101,7 +104,10 @@ docker run -it \
   mellea-skills-compiler:latest
 ```
 
-The container starts as UID 1001. Your local `skills` directory is mounted to `/skills` to access your skill specs inside the container.
+A few things to note about this command:
+
+- **`-v ./skills:/skills`** is a *volume mount*: it links the `skills` folder in your current directory on your machine to the path `/skills` inside the container. Any files you place in `./skills` are immediately visible inside the container at `/skills`, and vice versa.
+- The container process runs as a non-root user (UID 1001) for security. If you encounter permission errors when writing output files back to a mounted directory, ensure the directory on your host is writable by UID 1001 (`chmod o+w ./skills`).
 
 Please follow the [**Quick Start**](#quick-start) guide below on how to run Mellea Skills Compiler.
 
