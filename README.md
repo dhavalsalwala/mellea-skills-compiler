@@ -289,6 +289,38 @@ Run `/mellea-fy` directly inside Bob Shell:
 
 See [`mellea-fy/README.md`](https://github.com/generative-computing/mellea-skills-compiler/blob/main/mellea-fy/README.md) for detailed usage of the Claude Code command.
 
+**Using pi**
+
+If you use the [pi](https://pi.dev) coding agent, install the
+`extensions/pi/` extension package in this repo to run `compile`, `validate`,
+`run`, and `certify` as slash commands from inside a pi session (it shells out
+to the same `mellea-skills` CLI installed above — install it first).
+
+Install pi (if you don't have it), install the extension, then start a pi
+session from the repo root:
+
+```bash
+curl -fsSL https://pi.dev/install.sh | sh   # or: npm install -g --ignore-scripts @earendil-works/pi-coding-agent
+pi install ./extensions/pi
+pi
+```
+
+Then, **inside the pi session** (these are pi slash commands, not shell
+commands):
+
+```
+/mellea-compile skills/weather/spec.md
+/mellea-validate examples/weather/weather_mellea
+/mellea-run examples/weather/weather_mellea --input "What's the weather like in Dublin?"
+/mellea-certify examples/weather/weather_mellea
+```
+
+This is a different feature from the `pi` **export target** below (compiled
+skill → pi-loadable `SKILL.md` bundle) — this extension runs the compiler
+*from inside* pi, the export target instead packages an already-compiled
+skill *for* pi. See [`extensions/pi/README.md`](extensions/pi/README.md) for the full command
+list, flags, and known limitations.
+
 ### Run Skill Pipeline
 
 Run skill pipeline for a given fixture
@@ -397,6 +429,11 @@ mellea-skills certify examples/weather/weather_mellea --risk-model ibm-granite/g
 Export a compiled Mellea skill to a deployment target - langgraph, claude-code, mcp, or pi
 
 **Note**: This command is experimental. Output structure and CLI interface may change in future releases without a deprecation period.
+
+**Note**: `--target pi` here packages a compiled skill *for* pi (a
+pi-loadable `SKILL.md` bundle) — this is different from the pi
+**extension** described under "Compile Agent Skill - Option 2" above, which
+runs the compiler *from inside* a pi session. The two are separate features.
 
 ```bash
 # Supported deployment target: mcp, langgraph, claude-code, pi

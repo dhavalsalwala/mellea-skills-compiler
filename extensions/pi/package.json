@@ -1,0 +1,17 @@
+{
+  "name": "mellea-skills-compiler-pi",
+  "version": "0.1.0",
+  "description": "Pi extension for the Mellea Skills Compiler — /mellea-compile, /mellea-validate, /mellea-run, and /mellea-certify commands wrapping the mellea-skills CLI",
+  "keywords": ["pi-package", "mellea", "skills", "compiler"],
+  "license": "Apache-2.0",
+  "type": "module",
+  "devDependencies": {
+    "tsx": "^4.19.0"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "pi": {
+    "extensions": ["./extensions"]
+  }
+}
