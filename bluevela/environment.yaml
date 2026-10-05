@@ -1,0 +1,15 @@
+# Conda env for the custom_code_lsf BYOC step. Deliberately minimal —
+# interpreter plus pip, nothing else. Every extra conda package is more parallel
+# extraction against the step's single shared NFS package cache, which is where
+# env creation actually breaks. The real dependencies live in
+# requirements-byoc.txt and are installed by setup_command.
+#
+# python 3.12, not 3.13: the harness's CCC notes record that 3.13's stdlib
+# _sqlite3 on the cluster links against a libsqlite without sqlite3_deserialize,
+# which breaks nltk and therefore mellea.
+name: msc-bv
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pip

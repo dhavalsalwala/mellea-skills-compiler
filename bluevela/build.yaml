@@ -1,0 +1,49 @@
+# Smoke run: serve granite-4.1-3b with vLLM on one BlueVela H100 and run both
+# arms of the experiment against it, saving every trace for later scoring.
+#
+# Submit to space `public` (where steps/custom_code_lsf and
+# environments/bluevela live). Scale to a real sweep by raising
+# num_gpus_per_node, pointing DATASET at the full corpus, and switching
+# MODEL_SLUG — nothing else in this file has to change.
+granite.build:
+  name: msc-vllm
+  targets:
+    msc-certify:
+      environment_uri: space://environments/bluevela
+      steps:
+        - step_uri: "space://steps/custom_code_lsf"
+          config:
+            compute_config:
+              num_nodes: 1                  # const: 1 in the v1 schema
+              num_gpus_per_node: 1          # 3B bf16 + 32k KV fits one H100
+              num_cpus_per_node: 2
+              total_memory_per_node: 10Gi
+            byoc_config:
+              github_url: "github.com/generative-computing/mellea-skills-compiler"
+              github_ref: "main"
+              conda_lockfile_path: "bluevela/environment.yml"
+              # The `ls` runs before the ~10 min pip install, so a dataset that
+              # never made it past .gitignore fails in seconds instead of after
+              # the env build. It is part of the env cache key, so it has to be
+              # here from the first build rather than bolted on later.
+              setup_command: >-
+                pip install --no-cache-dir
+                --only-binary vllm .
+              dependency_files:
+                - "bluevela/environment.yml"
+              start_command: "mellea-skills version"
+              dir_to_save: "."
+              # output_name: "bv-smoke"
+              # env:
+              #   MODEL_SLUG: "vllm-granite-4-1-3b"
+              #   SWEEP_ID: "msc-smoke-1"
+              #   # 32k, not the model's nominal 131k: KV cache for 131k on a
+              #   # single H100 crowds out the weights. The largest raw_md prompt
+              #   # in this corpus is ~20k characters, so 32k tokens is ample.
+              #   VLLM_MAX_MODEL_LEN: "32768"
+              #   # Skip CUDA-graph capture: shaves minutes off startup at some
+              #   # decode throughput, which is the right trade for 3 fixtures.
+              #   # Drop this for a real sweep.
+              #   VLLM_ENFORCE_EAGER: "1"
+              #   VLLM_READY_TIMEOUT: "1800"
+              #   HF_HOME: "/proj/data-eng/llmb-read-write/hfcache"
