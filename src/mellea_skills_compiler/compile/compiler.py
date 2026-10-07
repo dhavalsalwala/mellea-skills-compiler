@@ -1,7 +1,7 @@
 import json
 import shutil
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 from rich import print as rprint
 from rich.console import Console
@@ -313,6 +313,7 @@ def compile(
     # Derive mellea package name from the spec frontmatter
     mellea_package_name = _derive_mellea_package_name(spec_path, spec_frontmatter)
     mellea_package_dir = spec_dir / mellea_package_name
+    mellea_package_dir.mkdir(parents=True, exist_ok=True)
 
     # Initialize compile metadata tracking and record invocation arguments
     CompileMetadata.init(mellea_package_dir)
@@ -398,11 +399,12 @@ def compile(
 
     # Post-compile: record melleafy step, copy spec, render companion files, and validate
     try:
-        # Capture melleafy data in compile metadata
-        CompileMetadata.record_melleafy()
-
         # Resolve output directory and copy original spec for reference/distribution
         mellea_dir: Path = _select_canonical_mellea_dir(spec_dir, mellea_package_name)
+
+        # Capture melleafy data in compile metadata
+        CompileMetadata.record_melleafy(mellea_dir)
+
         if spec_md_path:
             shutil.copy(spec_md_path, mellea_dir / SpecFileFormat.SKILL_FILE_MD)
 

@@ -82,7 +82,8 @@ class CompileMetadata:
         inst._dump()
 
     @classmethod
-    def record_melleafy(cls) -> None:
+    def record_melleafy(cls, mellea_dir) -> None:
+        cls._mellea_package_dir = mellea_dir
         inst = cls._require_init()
         melleafy_path = inst._mellea_package_dir / "melleafy.json"
         melleafy_data = None
