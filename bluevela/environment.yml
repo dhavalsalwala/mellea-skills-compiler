@@ -7,7 +7,7 @@
 # python 3.12, not 3.13: the harness's CCC notes record that 3.13's stdlib
 # _sqlite3 on the cluster links against a libsqlite without sqlite3_deserialize,
 # which breaks nltk and therefore mellea.
-name: msc-bv
+name: msc-vllm-python
 channels:
   - conda-forge
 dependencies:

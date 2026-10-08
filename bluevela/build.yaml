@@ -6,7 +6,7 @@
 # num_gpus_per_node, pointing DATASET at the full corpus, and switching
 # MODEL_SLUG — nothing else in this file has to change.
 granite.build:
-  name: msc-vllm
+  name: msc-vllm-build
   targets:
     msc-certify:
       environment_uri: space://environments/bluevela
@@ -27,13 +27,12 @@ granite.build:
               # the env build. It is part of the env cache key, so it has to be
               # here from the first build rather than bolted on later.
               setup_command: >-
-                pip install --no-cache-dir
-                --only-binary vllm .
+                pip install --no-cache-dir --only-binary vllm .
               dependency_files:
                 - "bluevela/environment.yml"
               start_command: "mellea-skills version"
               dir_to_save: "."
-              # output_name: "bv-smoke"
+              output_name: "msc-vllm-output"
               # env:
               #   MODEL_SLUG: "vllm-granite-4-1-3b"
               #   SWEEP_ID: "msc-smoke-1"
