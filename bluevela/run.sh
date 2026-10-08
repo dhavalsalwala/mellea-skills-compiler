@@ -21,7 +21,7 @@ trap cleanup EXIT INT TERM
 
 echo "Starting vLLM server..."
 if [[ -n "$VLLM_MODEL" ]]; then
-    vllm serve "$VLLM_MODEL" --host "$VLLM_HOST" --port "$VLLM_PORT" &
+    python -m vllm.entrypoints.openai.api_server --model "$VLLM_MODEL" --max_model_len 8192 --host "$VLLM_HOST" --port "$VLLM_PORT" &
 else
     vllm serve &
 fi
