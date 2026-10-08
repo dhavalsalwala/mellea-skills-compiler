@@ -1,4 +1,4 @@
 mellea[hooks]>=0.7.0,<0.8
-ai-atlas-nexus
+ai-atlas-nexus[vllm]
 typer
 rich
