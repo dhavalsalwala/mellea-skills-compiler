@@ -52,6 +52,7 @@ if [[ $elapsed -ge $MAX_WAIT_SECONDS ]]; then
 fi
 
 echo "Running certify command..."
+export PYTHONPATH=$REPO_ROOT/src
 python -m mellea_skills_compiler.cli certify examples/weather/weather_mellea --inference-engine vllm
 CERTIFY_EXIT_CODE=$?
 
