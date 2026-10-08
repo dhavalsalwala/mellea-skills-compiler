@@ -23,6 +23,6 @@ granite.build:
                 - "bluevela/requirements.txt"
               start_command: >-
                 export PYTHONPATH=$REPO_ROOT/src &&
-                python -m mellea_skills_compiler.cli version
+                bash bluevela/run.sh
               dir_to_save: "."
               output_name: "msc-output"
