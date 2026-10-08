@@ -1,4 +1,4 @@
-name: msc-vllm-python
+name: msc-conda
 channels:
   - conda-forge
 dependencies:
