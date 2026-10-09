@@ -1,5 +1,4 @@
 import os
-from logging import Logger
 from typing import Any, Dict, Optional
 
 from mellea_skills_compiler.enums import (
@@ -7,10 +6,7 @@ from mellea_skills_compiler.enums import (
     InferenceModel,
     InferenceModelType,
 )
-from mellea_skills_compiler.toolkit.logging import configure_logger
 
-
-LOGGER: Logger = configure_logger()
 
 OLLAMA_API_URL: Optional[str] = os.environ.get(
     "OLLAMA_API_URL", "http://localhost:11434"

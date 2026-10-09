@@ -348,7 +348,9 @@ def full_pipeline(
         manifest: PolicyManifest = generate_policy_manifest(
             use_case,
             nexus,
-            None,
+            inference_engine=InferenceService.risk_engine(
+                risk_model, inference_engine_type
+            ),
         )
         manifest_path: Path = audit_dir / "policy_manifest.json"
         manifest.to_json(path=manifest_path)
