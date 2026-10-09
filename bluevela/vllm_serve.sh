@@ -1,12 +1,13 @@
 #!/bin/bash
 set -e
 
+VLLM_MODEL="${VLLM_MODEL}"
 VLLM_HOST="${VLLM_HOST:-localhost}"
 VLLM_PORT="${VLLM_PORT:-8000}"
-VLLM_MODEL="${VLLM_MODEL:-ibm-granite/granite-4.1-3b}"
 HEALTH_ENDPOINT="http://${VLLM_HOST}:${VLLM_PORT}/health"
 MAX_WAIT_SECONDS=300
 POLL_INTERVAL=5
+
 
 echo "Starting vLLM server..."
 if [[ -n "$VLLM_MODEL" ]]; then
