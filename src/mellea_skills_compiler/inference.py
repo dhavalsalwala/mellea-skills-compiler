@@ -1,4 +1,5 @@
 import os
+from logging import Logger
 from typing import Any, Dict, Optional
 
 from mellea_skills_compiler.enums import (
@@ -6,7 +7,10 @@ from mellea_skills_compiler.enums import (
     InferenceModel,
     InferenceModelType,
 )
+from mellea_skills_compiler.toolkit.logging import configure_logger
 
+
+LOGGER: Logger = configure_logger()
 
 OLLAMA_API_URL: Optional[str] = os.environ.get(
     "OLLAMA_API_URL", "http://localhost:11434"
@@ -78,8 +82,8 @@ class InferenceService:
         if self.inference_engine_type == InferenceEngineType.OLLAMA:
             return {"api_url": OLLAMA_API_URL}
         elif self.inference_engine_type == InferenceEngineType.VLLM:
-            print("VLLM_API_URL_RISK_MODEL: ", os.environ.get("VLLM_API_URL_RISK_MODEL"))
-            print("TEST_VAR: ", os.environ.get("TEST_VAR"))
+            LOGGER.info("VLLM_API_URL_RISK_MODEL: ", os.environ.get("VLLM_API_URL_RISK_MODEL"))
+            LOGGER.info("TEST_VAR: ", os.environ.get("TEST_VAR"))
             api_url, api_key = (
                 (VLLM_API_URL_RISK_MODEL, VLLM_API_KEY_RISK_MODEL)
                 if model_type == InferenceModelType.RISK_MODEL
