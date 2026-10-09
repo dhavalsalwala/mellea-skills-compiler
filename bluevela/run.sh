@@ -29,12 +29,12 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 echo "Starting vLLM server 1 (${VLLM_MODEL_1} on port ${VLLM_PORT_1})..."
-CUDA_VISIBLE_DEVICES=0 python -m vllm.entrypoints.openai.api_server --model "$VLLM_MODEL_1" --max_model_len 8192 --host "$VLLM_HOST" --port "$VLLM_PORT_1" &
+CUDA_VISIBLE_DEVICES=0 python -m vllm.entrypoints.openai.api_server --model "$VLLM_MODEL_1" --max_model_len 8192 --host "$VLLM_HOST" --port "$VLLM_PORT_1" --api-key msc-test &
 VLLM_PID_1=$!
 echo "vLLM server 1 started with PID: $VLLM_PID_1"
 
 echo "Starting vLLM server 2 (${VLLM_MODEL_2} on port ${VLLM_PORT_2})..."
-CUDA_VISIBLE_DEVICES=1 python -m vllm.entrypoints.openai.api_server --model "$VLLM_MODEL_2" --max_model_len 8192 --host "$VLLM_HOST" --port "$VLLM_PORT_2" &
+CUDA_VISIBLE_DEVICES=1 python -m vllm.entrypoints.openai.api_server --model "$VLLM_MODEL_2" --max_model_len 8192 --host "$VLLM_HOST" --port "$VLLM_PORT_2" --api-key msc-test &
 VLLM_PID_2=$!
 echo "vLLM server 2 started with PID: $VLLM_PID_2"
 
@@ -78,6 +78,8 @@ fi
 
 echo "Running certify command..."
 export PYTHONPATH=$REPO_ROOT/src
+export OPENAI_API_KEY="msc-test"
+export OPENAI_BASE_URL="http://${VLLM_HOST}:${VLLM_PORT_1}/v1"
 python -m mellea_skills_compiler.cli certify examples/weather/weather_mellea --inference-engine vllm
 CERTIFY_EXIT_CODE=$?
 
