@@ -78,6 +78,7 @@ class InferenceService:
         if self.inference_engine_type == InferenceEngineType.OLLAMA:
             return {"api_url": OLLAMA_API_URL}
         elif self.inference_engine_type == InferenceEngineType.VLLM:
+            print("VLLM_API_URL_RISK_MODEL: ", os.environ["VLLM_API_URL_RISK_MODEL"])
             api_url, api_key = (
                 (VLLM_API_URL_RISK_MODEL, VLLM_API_KEY_RISK_MODEL)
                 if model_type == InferenceModelType.RISK_MODEL
