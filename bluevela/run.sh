@@ -34,7 +34,7 @@ VLLM_PID_1=$!
 echo "vLLM server 1 started with PID: $VLLM_PID_1"
 
 echo "Starting vLLM server 2 (${VLLM_MODEL_2} on port ${VLLM_PORT_2})..."
-CUDA_VISIBLE_DEVICES=1 python -m vllm.entrypoints.openai.api_server --model "$VLLM_MODEL_2" --max_model_len 8192 --host "$VLLM_HOST" --port "$VLLM_PORT_2" --api-key msc-test &
+CUDA_VISIBLE_DEVICES=1 python -m vllm.entrypoints.openai.api_server --model "$VLLM_MODEL_2" --max_model_len 8192 --host "$VLLM_HOST" --port "$VLLM_PORT_2" &
 VLLM_PID_2=$!
 echo "vLLM server 2 started with PID: $VLLM_PID_2"
 
