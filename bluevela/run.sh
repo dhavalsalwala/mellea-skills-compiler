@@ -29,12 +29,12 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 echo "Starting vLLM server 1 (${VLLM_MODEL_1} on port ${VLLM_PORT_1})..."
-python -m vllm.entrypoints.openai.api_server --model "$VLLM_MODEL_1" --max_model_len 8192 --gpu-memory-utilization 0.45 --host "$VLLM_HOST" --port "$VLLM_PORT_1" &
+python -m vllm.entrypoints.openai.api_server --model "$VLLM_MODEL_1" --max_model_len 8192 --gpu-memory-utilization 0.30 --host "$VLLM_HOST" --port "$VLLM_PORT_1" &
 VLLM_PID_1=$!
 echo "vLLM server 1 started with PID: $VLLM_PID_1"
 
 echo "Starting vLLM server 2 (${VLLM_MODEL_2} on port ${VLLM_PORT_2})..."
-python -m vllm.entrypoints.openai.api_server --model "$VLLM_MODEL_2" --max_model_len 8192 --gpu-memory-utilization 0.45 --host "$VLLM_HOST" --port "$VLLM_PORT_2" &
+python -m vllm.entrypoints.openai.api_server --model "$VLLM_MODEL_2" --max_model_len 8192 --gpu-memory-utilization 0.30 --host "$VLLM_HOST" --port "$VLLM_PORT_2" &
 VLLM_PID_2=$!
 echo "vLLM server 2 started with PID: $VLLM_PID_2"
 
