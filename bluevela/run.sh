@@ -75,8 +75,8 @@ echo "Running certify command..."
 export PYTHONPATH=$REPO_ROOT/src
 export OPENAI_API_KEY="$VLLM_API_KEY_RISK_MODEL"
 export OPENAI_BASE_URL="http://${VLLM_HOST}:${VLLM_RISK_MODEL_PORT}/v1"
-export VLLM_API_URL_RISK_MODEL: "http://${VLLM_HOST}:${VLLM_RISK_MODEL_PORT}"
-export VLLM_API_URL_GUARDIAN_MODEL: "http://${VLLM_HOST}:${VLLM_GUARDIAN_MODEL_PORT}"
+export VLLM_API_URL_RISK_MODEL="http://${VLLM_HOST}:${VLLM_RISK_MODEL_PORT}"
+export VLLM_API_URL_GUARDIAN_MODEL="http://${VLLM_HOST}:${VLLM_GUARDIAN_MODEL_PORT}"
 python -m mellea_skills_compiler.cli certify examples/weather/weather_mellea --inference-engine vllm
 CERTIFY_EXIT_CODE=$?
 
