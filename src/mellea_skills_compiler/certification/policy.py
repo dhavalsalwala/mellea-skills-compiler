@@ -137,7 +137,7 @@ def generate_policy_manifest(
         additional_risks=additional_risks,
         governance_actions=governance_actions,
         governance_taxonomies=governance_taxonomies,
-        model=None,
+        model="Granite",
     )
 
 
