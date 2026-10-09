@@ -54,7 +54,7 @@ def generate_policy_manifest(
     if not governance_taxonomies:
         governance_taxonomies = GovernanceTaxonomy.list()
 
-    risk_lists = []
+    risk_lists = {}
     # nexus.identify_risks_and_actions_from_usecases(
     #     [use_case],
     #     inference_engine,
