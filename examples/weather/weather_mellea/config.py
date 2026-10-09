@@ -38,10 +38,10 @@ WEATHER_PRESET_WEEK_FORECAST: Final[str] = "?format=v2"
 # PROVENANCE: spec.md:101-105
 
 # === C8: Runtime Environment ===
-BACKEND: Final[str] = "ollama"
+BACKEND: Final[str] = "hf"
 # PROVENANCE: intermediate/runtime_directive.json:1-6
 
-MODEL_ID: Final[str] = "granite4.1:3B"
+MODEL_ID: Final[str] = "ibm-granite/granite-4.1-3b"
 # PROVENANCE: intermediate/runtime_directive.json:1-6
 
 WTTR_BASE_URL: Final[str] = "wttr.in"

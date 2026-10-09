@@ -2,67 +2,42 @@
 set -e
 
 VLLM_HOST="${VLLM_HOST:-localhost}"
-VLLM_PORT_1="${VLLM_PORT_1:-8000}"
-VLLM_MODEL_1="${VLLM_MODEL_1:-ibm-granite/granite-guardian-3.3-8b}"
-VLLM_PORT_2="${VLLM_PORT_2:-8001}"
-VLLM_MODEL_2="${VLLM_MODEL_2:-ibm-granite/granite-4.1-3b}"
-HEALTH_ENDPOINT_1="http://${VLLM_HOST}:${VLLM_PORT_1}/health"
-HEALTH_ENDPOINT_2="http://${VLLM_HOST}:${VLLM_PORT_2}/health"
+VLLM_PORT="${VLLM_PORT:-8000}"
+VLLM_MODEL="${VLLM_MODEL:-ibm-granite/granite-4.1-3b}"
+HEALTH_ENDPOINT="http://${VLLM_HOST}:${VLLM_PORT}/health"
 MAX_WAIT_SECONDS=300
 POLL_INTERVAL=5
 
 cleanup() {
-    if [[ -n "$VLLM_PID_1" ]] && kill -0 "$VLLM_PID_1" 2>/dev/null; then
-        echo "Stopping vLLM server 1 (PID: $VLLM_PID_1)..."
-        kill "$VLLM_PID_1" 2>/dev/null || true
-        wait "$VLLM_PID_1" 2>/dev/null || true
-        echo "vLLM server 1 stopped."
-    fi
-    if [[ -n "$VLLM_PID_2" ]] && kill -0 "$VLLM_PID_2" 2>/dev/null; then
-        echo "Stopping vLLM server 2 (PID: $VLLM_PID_2)..."
-        kill "$VLLM_PID_2" 2>/dev/null || true
-        wait "$VLLM_PID_2" 2>/dev/null || true
-        echo "vLLM server 2 stopped."
+    if [[ -n "$VLLM_PID" ]] && kill -0 "$VLLM_PID" 2>/dev/null; then
+        echo "Stopping vLLM server (PID: $VLLM_PID)..."
+        kill "$VLLM_PID" 2>/dev/null || true
+        wait "$VLLM_PID" 2>/dev/null || true
+        echo "vLLM server stopped."
     fi
 }
 
 trap cleanup EXIT INT TERM
 
-echo "Starting vLLM server 1 (${VLLM_MODEL_1} on port ${VLLM_PORT_1})..."
-python -m vllm.entrypoints.openai.api_server --model "$VLLM_MODEL_1" --max_model_len 8192 --gpu-memory-utilization 0.30 --host "$VLLM_HOST" --port "$VLLM_PORT_1" &
-VLLM_PID_1=$!
-echo "vLLM server 1 started with PID: $VLLM_PID_1"
+echo "Starting vLLM server..."
+if [[ -n "$VLLM_MODEL" ]]; then
+    python -m vllm.entrypoints.openai.api_server --model "$VLLM_MODEL" --host "$VLLM_HOST" --port "$VLLM_PORT" &
+else
+    vllm serve &
+fi
+VLLM_PID=$!
+echo "vLLM server started with PID: $VLLM_PID"
 
-echo "Starting vLLM server 2 (${VLLM_MODEL_2} on port ${VLLM_PORT_2})..."
-python -m vllm.entrypoints.openai.api_server --model "$VLLM_MODEL_2" --max_model_len 8192 --gpu-memory-utilization 0.30 --host "$VLLM_HOST" --port "$VLLM_PORT_2" &
-VLLM_PID_2=$!
-echo "vLLM server 2 started with PID: $VLLM_PID_2"
-
-echo "Waiting for vLLM servers to be ready..."
+echo "Waiting for vLLM server to be ready at $HEALTH_ENDPOINT..."
 elapsed=0
-server1_ready=false
-server2_ready=false
 while [[ $elapsed -lt $MAX_WAIT_SECONDS ]]; do
-    if [[ "$server1_ready" == "false" ]] && curl -s -f "$HEALTH_ENDPOINT_1" >/dev/null 2>&1; then
-        echo "vLLM server 1 is ready."
-        server1_ready=true
-    fi
-    if [[ "$server2_ready" == "false" ]] && curl -s -f "$HEALTH_ENDPOINT_2" >/dev/null 2>&1; then
-        echo "vLLM server 2 is ready."
-        server2_ready=true
-    fi
-
-    if [[ "$server1_ready" == "true" ]] && [[ "$server2_ready" == "true" ]]; then
-        echo "Both vLLM servers are ready."
+    if curl -s -f "$HEALTH_ENDPOINT" >/dev/null 2>&1; then
+        echo "vLLM server is ready."
         break
     fi
 
-    if ! kill -0 "$VLLM_PID_1" 2>/dev/null; then
-        echo "Error: vLLM server 1 process died unexpectedly."
-        exit 1
-    fi
-    if ! kill -0 "$VLLM_PID_2" 2>/dev/null; then
-        echo "Error: vLLM server 2 process died unexpectedly."
+    if ! kill -0 "$VLLM_PID" 2>/dev/null; then
+        echo "Error: vLLM server process died unexpectedly."
         exit 1
     fi
 
@@ -72,7 +47,7 @@ while [[ $elapsed -lt $MAX_WAIT_SECONDS ]]; do
 done
 
 if [[ $elapsed -ge $MAX_WAIT_SECONDS ]]; then
-    echo "Error: Timed out waiting for vLLM servers to be ready."
+    echo "Error: Timed out waiting for vLLM server to be ready."
     exit 1
 fi
 
@@ -83,11 +58,9 @@ CERTIFY_EXIT_CODE=$?
 
 echo "Certify command completed with exit code: $CERTIFY_EXIT_CODE"
 
-echo "Shutting down vLLM servers..."
-kill "$VLLM_PID_1" 2>/dev/null || true
-kill "$VLLM_PID_2" 2>/dev/null || true
-wait "$VLLM_PID_1" 2>/dev/null || true
-wait "$VLLM_PID_2" 2>/dev/null || true
-echo "vLLM servers terminated."
+echo "Shutting down vLLM server..."
+kill "$VLLM_PID" 2>/dev/null || true
+wait "$VLLM_PID" 2>/dev/null || true
+echo "vLLM server terminated."
 
 exit $CERTIFY_EXIT_CODE
