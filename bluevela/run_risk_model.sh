@@ -3,21 +3,10 @@ set -e
 
 VLLM_HOST="${VLLM_HOST:-localhost}"
 VLLM_PORT="${VLLM_PORT:-8000}"
-VLLM_MODEL="${VLLM_MODEL:-ibm-granite/granite-guardian-3.3-8b}"
+VLLM_MODEL="${VLLM_MODEL:-ibm-granite/granite-4.1-3b}"
 HEALTH_ENDPOINT="http://${VLLM_HOST}:${VLLM_PORT}/health"
 MAX_WAIT_SECONDS=300
 POLL_INTERVAL=5
-
-cleanup() {
-    if [[ -n "$VLLM_PID" ]] && kill -0 "$VLLM_PID" 2>/dev/null; then
-        echo "Stopping vLLM server (PID: $VLLM_PID)..."
-        kill "$VLLM_PID" 2>/dev/null || true
-        wait "$VLLM_PID" 2>/dev/null || true
-        echo "vLLM server stopped."
-    fi
-}
-
-trap cleanup EXIT INT TERM
 
 echo "Starting vLLM server..."
 if [[ -n "$VLLM_MODEL" ]]; then
@@ -51,17 +40,3 @@ if [[ $elapsed -ge $MAX_WAIT_SECONDS ]]; then
     echo "Error: Timed out waiting for vLLM server to be ready."
     exit 1
 fi
-
-echo "Running certify command..."
-export PYTHONPATH=$REPO_ROOT/src
-python -m mellea_skills_compiler.cli certify examples/weather/weather_mellea --inference-engine vllm
-CERTIFY_EXIT_CODE=$?
-
-echo "Certify command completed with exit code: $CERTIFY_EXIT_CODE"
-
-echo "Shutting down vLLM server..."
-kill "$VLLM_PID" 2>/dev/null || true
-wait "$VLLM_PID" 2>/dev/null || true
-echo "vLLM server terminated."
-
-exit $CERTIFY_EXIT_CODE
