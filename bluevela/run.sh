@@ -53,7 +53,7 @@ fi
 
 echo "Running certify command..."
 export PYTHONPATH=$REPO_ROOT/src
-export VLLM_API_URL_RISK_MODEL=http://localhost:8000
+export VLLM_API_URL_RISK_MODEL
 python -m mellea_skills_compiler.cli certify examples/weather/weather_mellea --inference-engine vllm
 CERTIFY_EXIT_CODE=$?
 
